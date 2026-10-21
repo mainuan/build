@@ -1,0 +1,7 @@
+/etc/skel/Desktop
+/usr/bin/kubuntu-manage-software
+/usr/bin/kubuntu-restore-desktop-links
+/usr/share/applications/org.kubuntu.manage-software.desktop
+/usr/share/applications/org.kubuntu.restore-desktop-links.desktop
+/usr/share/applications/org.kubuntu.web.home.desktop
+/usr/share/applications/org.kfocus.web.howtos.desktopd

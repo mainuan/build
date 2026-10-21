@@ -1,0 +1,82 @@
+#################################################
+##
+##     Apport
+##
+#################################################
+apport
+#################################################
+##
+##     Thunderbird
+##
+#################################################
+thunderbird
+#################################################
+##
+##     KDE Misc
+##
+#################################################
+kcalc
+kmahjongg
+kmines
+kpat
+ksudoku
+neochat
+usb-creator-kde
+kubuntu-installer-prompt
+qrca
+elisa
+plasma-welcome
+#################################################
+##
+##     Misc
+##
+#################################################
+remmina
+#################################################
+##
+##     Fcitx 5
+##
+#################################################
+fcitx5
+fcitx5-config-qt
+fcitx5-frontend-all
+libfcitx5core7
+fcitx5-chinese-addons-data
+fcitx5-material-color
+im-config
+#################################################
+##
+##     Libre Office
+##
+#################################################
+libreoffice-base-core
+libreoffice-calc
+libreoffice-common
+libreoffice-core
+libreoffice-draw
+libreoffice-impress
+libreoffice-kf6
+libreoffice-math
+libreoffice-plasma
+libreoffice-qt6
+libreoffice-style-breeze
+libreoffice-style-colibre
+libreoffice-uiconfig-calc
+libreoffice-uiconfig-common
+libreoffice-uiconfig-draw
+libreoffice-uiconfig-impress
+libreoffice-uiconfig-math
+libreoffice-uiconfig-writer
+libreoffice-writer
+#################################################
+##
+##     Canonical
+##
+#################################################
+ubuntu-advantage-tools
+ubuntu-drivers-common
+ubuntu-kernel-accessories
+ubuntu-pro-client
+ubuntu-release-upgrader-core
+unattended-upgrades
+snapd

@@ -1,0 +1,19 @@
+# Entradas do GRUB
+# As variáveis são obtidas do arquivo distro.ini, SOMENTE estas são suportadas
+#
+# Variáveis:
+#
+# ${user}            -> Nome de usuário no modo live
+# ${host}           -> Nome do host no modo live
+# ${name}           -> Nome interno do sistema operacional
+# ${grub_name}      -> Nome exibido no menu GRUB durante a inicialização
+# ${splash}         -> Parâmetro de inicialização que define o modo silencioso (sem mensagens)
+# ${keyboard}       -> Layout do teclado usado no modo live
+# ${base}           -> Versão base do Ubuntu usada
+# ${system_dir}     -> Nome do diretório raiz do sistema no repositório ou estrutura de compilação
+# ${system_version} -> Versão do sistema
+# ${flavour}        -> Sabor do Ubuntu usado como base
+# ${locale}         -> Localidade e idioma padrão do sistema
+# ${timezone}       -> Fuso horário padrão caso o Geo-IP falhe
+#
+${grub_name}: linux /casper/vmlinuz file=/cdrom/preseed/${name}.seed boot=casper ${splash} username=${user} hostname=${host} locale=${locale} ---

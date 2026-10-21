@@ -1,0 +1,87 @@
+################################################
+#
+#     GRUB
+#
+################################################
+grub-common
+grub-pc-bin
+grub-efi
+grub-efi-amd64-signed
+################################################
+#
+#     Disk formatting
+#
+################################################
+gdisk
+dosfstools
+################################################
+#
+#     (Des)compressão de arquivos
+#
+################################################
+squashfs-tools
+libarchive-tools
+################################################
+#
+#     Drivers e similares
+#
+################################################
+printer-driver-all
+pcscd
+libpcsclite1
+libccid
+pcsc-tools
+opensc
+opensc-pkcs11
+p11-kit
+p11-kit-modules
+libfido2-1
+fido2-tools
+python3-fido2
+yubikey-manager
+libyubikey-udev
+libykpiv2
+ykcs11
+yubico-piv-tool
+################################################
+#
+#     Módulos do plasma-settings
+#
+################################################
+system-config-printer
+cups-pk-helper
+################################################
+#
+#     Traduções pro português
+#
+################################################
+language-pack-pt
+language-pack-pt
+language-pack-gnome-pt
+language-pack-kde-pt
+hunspell-pt-br
+################################################
+#
+#     Misc
+#
+################################################
+kolourpaint
+kate
+kfind
+partitionmanager
+kamoso
+kclock
+calindori
+marknote
+plasma-session-x11
+kwin-x11
+kwrite
+kalk
+firefox
+cpu-x
+timeshift
+flatpak
+synaptic
+clamtk
+pyqt6-dev-tools
+ubuntu-drivers-common

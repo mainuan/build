@@ -1,0 +1,34 @@
+################################################
+#
+#     Terminal apps
+#
+################################################
+vim.desktop
+info.desktop
+htop.desktop
+display-im7.q16.desktop
+yad-icon-browser.desktop
+################################################
+#
+#     Config apps
+#
+################################################
+kde_wacom_tabletfinder.desktop
+org.kde.kwalletmanager.desktop
+systemsettings.desktop
+org.kde.drkonqi.coredump.gui.desktop
+################################################
+#
+#     Calamares
+#
+################################################
+kubuntu-calamares.desktop
+calamares-launch-oem.desktop
+################################################
+#
+#     Misc
+#
+################################################
+org.kde.plasma.emojier.desktop
+org.kubuntu.web.home.desktop
+org.kfocus.web.howtos.desktop

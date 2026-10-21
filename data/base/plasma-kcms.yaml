@@ -1,0 +1,16 @@
+Acessibilidade: preferences-desktop-accessibility |  kcm_access  
+Impressoras e bluetooth: preferences-devices-printer | kcm_bluetooth kcm_printer_manager kcm_kamera kcm_device_automounter kcm_solid_actions
+Idioma e horário: preferences-system-time | kcm_clock kcm_regionandlang kcmspellchecking kcm_nighttime
+Segurança e privacidade: yast-security-group | kcm_firewall kcm_kwallet5 kcm_screenlocker kcm_recentFiles kcm_feedback
+Wi-Fi, Internet e Rede: network-workgroup | kcm_networkmanagement kcm_proxy kcm_cellular_network kcm_netpref
+Personalização: preferences-desktop-theme | kcm_wallpaper kcm_fonts kcm_animations kcm_colors kcm_icons kcm_cursortheme kcm_soundtheme kcm_kwindecoration kcm_style kcm_desktoptheme  kcm_desktoppaths
+Tela: preferences-desktop-display | kcm_kscreen kcm_nightlight kcm_kgamma kcm_compositing
+Espaço de trabalho: preferences-desktop-plasma-theme | kcm_kwinscreenedge kcm_kwin_virtualdesktops kcm_kactivities kcm_baloofile kcm_filetypes kcm_kwintouchscreen kcm_plasmasearch kcm_workspace kcm_powerdevilprofilesconfig kcm_componentchooser kcm_notifications kcm_kwin_effects kcm_smserver
+Sistema: preferences-system | kcm_users kcm_kup kcm_updates kcm_about-distro kcm_kded
+Gerenciador de janelas: preferences-system-windows | kcm_kwinrules kcm_kwin_scripts kcm_kwintabbox kcm_kwinoptions
+Inicialização e sessão: system-run | kcm_autostart  kcm_sddm kcm_splashscreen kcm_plymouth
+Som e qualidade de CD: preferences-desktop-sound | kcm_pulseaudio kcm_audiocd
+Dispositivos: preferences-desktop-mouse | kcm_mouse kcm_touchpad kcm_keyboard kcm_tablet kcm_wacomtablet kcm_gamecontroller kcm_touchscreen
+
+
+

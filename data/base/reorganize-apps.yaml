@@ -1,0 +1,46 @@
+
+# Utilitários
+
+org.kde.ark.desktop: Utility; | Compactador de arquivos
+org.kde.calindori.desktop: Utility; | %GenericName
+org.kde.gwenview.desktop:  Utility; | Galeria de imagens
+org.kde.haruna.desktop: AudioVideo; | %GenericName
+org.kde.kamoso.desktop: Utility; | %GenericName
+org.kde.kate.desktop: Development; | Editor de códigos
+org.kde.kcalc.desktop: Utility; | %GenericName
+org.kde.kalk.desktop: Utility; | Calculadora
+io.github.thetumultuousunicornofdarkness.cpu-x.desktop: System; | CPU-X
+org.kde.kcharselect.desktop: Utility; | Escolher caractere
+org.kde.kclock.desktop: Utility; | %Name
+org.kde.kfind.desktop: Utility; | %GenericName
+org.kde.kolourpaint.desktop: Graphics; | Desenho
+org.kde.kwrite.desktop: Utility; | %GenericName
+org.kde.marknote.desktop: Utility; | Anotações
+org.kde.okular.desktop: Utility; | %GenericName
+org.kde.skanlite.desktop: Utility; | Escaneador de imagens
+org.kde.skanpage.desktop: Utility; | Escaneador de documentos
+org.kde.spectacle.desktop: Utility; | Captura de tela
+org.kubuntu.driver-manager.desktop: System; | Gerenciador de drivers
+org.kde.elisa.desktop: Utility; | %GenericName
+org.kde.dolphin.desktop: Utility; | %GenericName
+org.kde.kdeconnect.app.desktop: Utility; | %GenericName
+org.kde.kdeconnect.sms.desktop: Utility; | %GenericName
+org.kde.khelpcenter.desktop: Documentation; | %GenericName
+org.kde.kinfocenter.desktop: Documentation; |  %GenericName
+org.kde.plasma-welcome.desktop: Documentation; | Tutorial
+clamtk.desktop: System; | Antivírus
+org.kde.konsole.desktop: System; | %GenericName
+org.kde.discover.desktop: System; | %GenericName
+synaptic.desktop: System; | Gerenciar componentes de sistema
+org.kde.krdc.desktop: System; | %GenericName
+org.kde.partitionmanager.desktop: System; | %GenericName
+org.kde.ksystemlog.desktop: System; | %GenericName
+org.kde.plasma-systemmonitor.desktop: System; | %Name
+libreoffice-calc.desktop: Office; | %Name
+libreoffice-draw.desktop: Office; | %Name
+libreoffice-impress.desktop: Office; | %Name
+libreoffice-math.desktop: Office; | %Name
+libreoffice-startcenter.desktop: Office; | %Name
+libreoffice-writer.desktop: Office; | %Name
+org.kde.kmenuedit.desktop: System; | %Name
+timeshift-gtk.desktop: System; | Backup e Restauração
