@@ -91,8 +91,13 @@ function extract-image {
 
     (
       cd "chroot"
+
       if [ -d "bin.usr-is-merged" ]; then
         rm -rf bin.usr-is-merged lib.usr-is-merged sbin.usr-is-merged
+      fi
+
+      if [ -f "etc/apt/sources.list.d/cdrom.sources" ]; then
+        rm -rf "etc/apt/sources.list.d/cdrom.sources"
       fi
     )
 }
@@ -834,8 +839,13 @@ function remove-system-files {
         rm -vf "chroot/${f}";
         continue;
       fi
+      if [ -h "chroot/${f}" ]; then
+        rm -vf "chroot/${f}";
+        continue;
+      fi
       if [ -d "chroot/${f}" ]; then
         rm -rfv "chroot/${f}";
+        mkdir -p "chroot/${f}";
         continue;
       fi
     done
