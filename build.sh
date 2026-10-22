@@ -201,7 +201,7 @@ function launchpad-repositories {
     for repo in $(sed "s|#.*||g" "${variant_data_dir}/launchpad-repositories.lst" | xargs); do
         echo "    - ${repo}"
         echo
-        chroot "chroot" add-apt-repository $(sed "s|#.*||g" "${variant_data_dir}/launchpad-repositories.lst" | xargs) -y
+        chroot "chroot" add-apt-repository "${repo}" -y
         echo
     done
     set +f
