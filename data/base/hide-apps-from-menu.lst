@@ -17,6 +17,7 @@ kde_wacom_tabletfinder.desktop
 org.kde.kwalletmanager.desktop
 systemsettings.desktop
 org.kde.drkonqi.coredump.gui.desktop
+org.kubuntu.driver-manager.desktop
 ################################################
 #
 #     Calamares
