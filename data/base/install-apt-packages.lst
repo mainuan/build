@@ -50,6 +50,7 @@ yubico-piv-tool
 ################################################
 system-config-printer
 cups-pk-helper
+guvcview
 ################################################
 #
 #     Traduções pro português
