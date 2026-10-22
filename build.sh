@@ -909,7 +909,7 @@ function branding {
     echo "UseOSReleaseVersion=false"
     echo "Version=${system_version} ${type}"
     echo "Website=${website}"
-  ) > "chroot/etc/xdg/kcm-about-distorc"
+  ) > "chroot/etc/xdg/kcm-about-distrorc"
 
   (
     echo -E "${name} ${system_version} ${type} \n \l"
