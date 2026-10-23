@@ -3,7 +3,7 @@
 #
 # Variáveis:
 #
-# ${user}            -> Nome de usuário no modo live
+# ${user}           -> Nome de usuário no modo live
 # ${host}           -> Nome do host no modo live
 # ${name}           -> Nome interno do sistema operacional
 # ${grub_name}      -> Nome exibido no menu GRUB durante a inicialização
@@ -16,4 +16,4 @@
 # ${locale}         -> Localidade e idioma padrão do sistema
 # ${timezone}       -> Fuso horário padrão caso o Geo-IP falhe
 #
-${grub_name}: linux /casper/vmlinuz file=/cdrom/preseed/${name}.seed boot=casper ${splash} username=${user} hostname=${host} locale=${locale} ---
+${grub_name}: linux /casper/vmlinuz file=/cdrom/preseed/${name}.seed boot=casper ${splash} username=${user} userfullname="${name}" hostname=${host} locale=${locale} ---
