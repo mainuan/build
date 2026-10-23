@@ -83,6 +83,6 @@ cpu-x
 timeshift
 flatpak
 synaptic
-clamtk
+# clamtk
 pyqt6-dev-tools
 ubuntu-drivers-common
