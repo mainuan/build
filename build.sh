@@ -459,6 +459,9 @@ function setup-calamares {
     echo "  - Disabling \"Automirror\" section"
     sed -i 's|^  - automirror|#  - automirror|' "chroot/etc/calamares/settings.conf"
 
+    echo "  - Disabling \"shellprocess@rmcdrom\" section"
+    sed -i 's|^  - shellprocess@rmcdrom|#  - shellprocess@rmcdrom|' "chroot/etc/calamares/settings.conf"
+
     echo "  - Change partitions name"
     sed -i 's|^    - name: "kubuntu_boot"|    - name: "System_Boot"|' "chroot/etc/calamares/modules/partition.conf"
     sed -i 's|^    - name: "kubuntu_2604"|    - name: "System_Root"|' "chroot/etc/calamares/modules/partition.conf"
