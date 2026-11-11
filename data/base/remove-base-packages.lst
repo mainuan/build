@@ -80,3 +80,5 @@ ubuntu-pro-client
 ubuntu-release-upgrader-core
 unattended-upgrades
 snapd
+ufw
+ffmpeg
