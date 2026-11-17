@@ -1271,7 +1271,10 @@ function build-iso {
     mkdir -pv ".disk"
     echo "${name} ${system_version}${release_stage:+ ${release_stage^^}} \"${code_name}\" - amd64 ($(date -u +%Y%m%d))" > .disk/info
 
-    find . -type f ! -name md5sum.txt -print0 | sort -z | xargs -0 md5sum > md5sum.txt
+    # isolinux/bios.img is the El Torito BIOS image: xorriso writes the boot
+    # info table into it (-boot-info-table), so its checksum would never match
+    # and casper's "check disc for defects" would report the medium as broken.
+    find . -type f ! -name md5sum.txt ! -path ./isolinux/bios.img -print0 | sort -z | xargs -0 md5sum > md5sum.txt
     mkdir -pv ../iso
     rm -f "../iso/${iso_name}.iso"
 
