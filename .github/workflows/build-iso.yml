@@ -140,11 +140,36 @@ jobs:
           echo "artifact=iso-$name-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
           ls -l
 
+      - name: Split for GitHub Releases (2 GiB per asset) and checksum
+        working-directory: /mnt/mainuan-build
+        run: |
+          set -euo pipefail
+          cd "$VARIANT/iso"
+          name="${{ steps.iso.outputs.name }}"
+          mkdir -p ../release
+          split --bytes=1900M --numeric-suffixes=1 --suffix-length=1 "$name.iso" "../release/$name.iso.part"
+          cp "$name.packages" "$name.build-info" components.sha256 ../release/
+          cd ../release
+          { cat "../iso/$name.iso.sha256"; sha256sum "$name".iso.part*; } > SHA256SUMS
+          # Reassembling the parts must give back the tested image.
+          cat "$name".iso.part* | sha256sum | awk '{print $1}' | grep -qx "$(cut -d' ' -f1 "../iso/$name.iso.sha256")"
+          ls -l
+
+      - name: Upload the ISO parts (before the tests, so a failure can be debugged locally)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.iso.outputs.artifact }}
+          path: /mnt/mainuan-build/${{ env.VARIANT }}/release/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
       - name: Structural checks
         working-directory: /mnt/mainuan-build
         run: |
           sudo apt-get install --yes --no-install-recommends xorriso squashfs-tools file > /dev/null
-          bash tests/iso/check-iso.sh "$VARIANT/iso/${{ steps.iso.outputs.name }}.iso" /mnt/check-iso | tee "$VARIANT/iso/check-iso.log"
+          set -o pipefail
+          bash tests/iso/check-iso.sh "$VARIANT/iso/${{ steps.iso.outputs.name }}.iso" "$RUNNER_TEMP/check-iso" | tee "$VARIANT/iso/check-iso.log"
 
       - name: Enable KVM for the boot tests
         run: |
@@ -165,33 +190,6 @@ jobs:
         run: |
           python3 tests/iso/live-smoke.py "$VARIANT/iso/${{ steps.iso.outputs.name }}.iso" \
             --firmware bios --memory 6144 --cpus 4 --out "$VARIANT/iso/live-bios"
-
-      - name: Split for GitHub Releases (2 GiB per asset) and checksum
-        working-directory: /mnt/mainuan-build
-        run: |
-          set -euo pipefail
-          cd "$VARIANT/iso"
-          name="${{ steps.iso.outputs.name }}"
-          mkdir -p ../release
-          split --bytes=1900M --numeric-suffixes=1 --suffix-length=1 "$name.iso" "../release/$name.iso.part"
-          cp "$name.packages" "$name.build-info" components.sha256 check-iso.log ../release/
-          cp live-uefi/report.json ../release/live-uefi-report.json
-          cp live-bios/report.json ../release/live-bios-report.json
-          cp live-uefi/live.png ../release/live-uefi.png 2>/dev/null || true
-          cd ../release
-          { cat "../iso/$name.iso.sha256"; sha256sum "$name".iso.part*; } > SHA256SUMS
-          # Reassembling the parts must give back the tested image.
-          cat "$name".iso.part* | sha256sum | awk '{print $1}' | grep -qx "$(cut -d' ' -f1 "../iso/$name.iso.sha256")"
-          ls -l
-
-      - name: Upload the ISO parts and reports
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.iso.outputs.artifact }}
-          path: /mnt/mainuan-build/${{ env.VARIANT }}/release/
-          if-no-files-found: error
-          retention-days: 14
-          compression-level: 0
 
       - name: Upload logs (also on failure)
         if: always()
@@ -218,6 +216,20 @@ jobs:
         with:
           name: ${{ needs.build.outputs.artifact }}
           path: release
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: logs
+
+      - name: Attach the test reports
+        run: |
+          set -euo pipefail
+          cp logs/base/iso/check-iso.log release/
+          for fw in uefi bios; do
+            cp "logs/base/iso/live-$fw/report.json" "release/live-$fw-report.json"
+          done
+          cp logs/base/iso/live-uefi/live.png release/live-uefi.png
 
       - name: Publish (never replaces an existing release)
         env:

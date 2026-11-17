@@ -9,7 +9,8 @@ set -uo pipefail
 
 iso="${1:?usage: check-iso.sh <image.iso> [workdir]}"
 work="${2:-$(mktemp -d)}"
-mkdir -p "${work}"
+mkdir -p "${work}" || { echo "cannot create work directory ${work}"; exit 2; }
+[ -w "${work}" ] || { echo "work directory ${work} is not writable"; exit 2; }
 
 failures=0
 pass() { printf 'PASS  %s\n' "$1"; }
@@ -34,11 +35,12 @@ done
 extract="${work}/tree"
 rm -rf "${extract}"
 mkdir -p "${extract}"
-if osirrox -indev "${iso}" -extract / "${extract}" > /dev/null 2>&1; then
+if osirrox -indev "${iso}" -extract / "${extract}" > "${work}/osirrox.log" 2>&1; then
   chmod -R u+w "${extract}"
   (cd "${extract}" && md5sum --check --quiet md5sum.txt) && pass "md5sum.txt matches" || fail "md5sum.txt matches"
 else
   fail "extract ISO tree"
+  tail -20 "${work}/osirrox.log"
 fi
 
 cfg="${extract}/isolinux/grub.cfg"

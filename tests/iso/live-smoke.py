@@ -199,12 +199,15 @@ def main():
         time.sleep(1)
         serial.send("e")
         time.sleep(1)
-        serial.send("\x05")  # Ctrl-E: end of the first line (linux ...)
+        # The editor opens on "setparams '<title>'"; the kernel line is next.
+        serial.send("\x0e")  # Ctrl-N: next line (linux /casper/vmlinuz ...)
+        time.sleep(0.3)
+        serial.send("\x05")  # Ctrl-E: end of line
         serial.send(" console=tty0 console=ttyS0,115200")
         time.sleep(0.5)
         serial.send("\x18")  # Ctrl-X: boot
-        serial.wait_for(r"Linux version", 120)
-        report["steps"]["kernel_seconds"] = round(time.monotonic() - started, 1)
+        serial.wait_for(r"Booting a command list", 30)
+        report["steps"]["boot_seconds"] = round(time.monotonic() - started, 1)
 
         # 2. Login on the serial console as the live user (no password).
         serial.wait_for(r"login:\s*$", args.boot_timeout)
