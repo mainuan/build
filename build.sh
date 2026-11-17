@@ -440,12 +440,15 @@ function setup-calamares {
         return
     fi
 
+    # LibreOffice is removed from the image, and libreoffice-l10n-$LOCALE would
+    # pull it back in: keep these entries disabled.
     echo "  - Disable Libre Office reinstallation"
     sed -i 's|^      - libreoffice-help-|#      - libreoffice-help-|' "chroot/etc/calamares/modules/packages.conf"
     sed -i 's|^      - libreoffice-l10n-|#      - libreoffice-l10n-|' "chroot/etc/calamares/modules/packages.conf"
 
-    echo "  - Disable Hunspell-[lang] installation"
-    sed -i 's|^      - hunspell-|#      - hunspell-|' "chroot/etc/calamares/modules/packages.conf"
+    # Hunspell dictionaries stay enabled: Calamares installs hunspell-$LOCALE with
+    # try_install, so an offline installation simply skips it, and users of
+    # other languages get spell checking (KDE Sonnet) in their language.
 
     echo "  - Disable Internet check"
     sed -i 's|^        - internet|#        - internet|' "chroot/etc/calamares/modules/welcome.conf"
