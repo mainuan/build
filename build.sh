@@ -171,7 +171,7 @@ APT
     # Regenerate vmlinuz and force casper
     local kernel=$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)
     chroot-apt-update
-    chroot "chroot" apt install casper ${kernel} --reinstall --allow-downgrades -y
+    chroot-apt-get install --reinstall --allow-downgrades -y casper ${kernel}
     if [ -f "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom" ]; then
       rm "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom";
     fi
@@ -234,7 +234,7 @@ function launchpad-repositories {
         echo
         echo "PPA support not installed, installing..."
         echo
-        chroot "chroot" apt install -y software-properties-common
+        chroot-apt-get install -y software-properties-common
         echo
     fi
 
@@ -407,7 +407,11 @@ function install-deb-packages {
 
     echo "  - Installing packages"
     echo
-    chroot chroot /bin/bash -c "apt-get install -y /mita-i.debian-packages/*.deb"
+    local debs=()
+    for file in chroot/mita-i.debian-packages/*.deb; do
+      debs+=("${file#chroot}")
+    done
+    chroot-apt-get install -y "${debs[@]}"
     echo
 
     echo "  - Remove .deb files"
@@ -423,7 +427,8 @@ function install-apt-packages {
       return
     fi
     chroot "chroot" apt purge firefox -y
-    chroot "chroot" apt install --reinstall $(sed "s|#.*||g" "${variant_data_dir}/install-apt-packages.lst" | xargs) -y
+    # shellcheck disable=SC2046
+    chroot-apt-get install --reinstall -y $(sed "s|#.*||g" "${variant_data_dir}/install-apt-packages.lst" | xargs)
 }
 
 function install-flatpak-packages {
@@ -439,7 +444,7 @@ function install-flatpak-packages {
     echo "  - Setup Flathub"
     echo
     echo "Fixing TSL issues with Flathub SSL on chroot..."
-    chroot "chroot" apt install ca-certificates --reinstall --allow-downgrades -y
+    chroot-apt-get install --reinstall --allow-downgrades -y ca-certificates
     echo
     chroot "chroot" flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     echo
@@ -1291,6 +1296,21 @@ function build-iso {
     echo
 }
 
+#-----------------------------------------------------------------------------------------------------------------------------------------
+chroot-apt-get() {
+    # Package downloads from Launchpad PPAs fail with 503 for minutes at a
+    # time (the same file answers 200, then 503): retry the whole command.
+    # Files already downloaded stay in APT's cache.
+    local attempt
+    for attempt in 1 2 3 4; do
+      if chroot "chroot" apt-get "$@"; then
+        return 0
+      fi
+      echo "  - apt-get $1 failed (attempt ${attempt}/4), retrying in $((attempt * 60)) s"
+      sleep $((attempt * 60))
+    done
+    chroot "chroot" apt-get "$@"
+}
 #-----------------------------------------------------------------------------------------------------------------------------------------
 chroot-apt-update() {
     # Index downloads fail as errors (APT::Update::Error-Mode). Launchpad PPAs
