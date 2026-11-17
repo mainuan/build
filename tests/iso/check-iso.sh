@@ -117,6 +117,12 @@ plymouth_default="$(unsquashfs -lls "${squash}" etc/alternatives/default.plymout
 grep -q 'themes/mainuan/mainuan.plymouth' <<< "${plymouth_default}" && pass "Plymouth default theme mainuan" \
   || fail "Plymouth default theme mainuan (${plymouth_default})"
 
+text_default="$(unsquashfs -lls "${squash}" etc/alternatives/text.plymouth 2>/dev/null | grep -o '\-> .*')"
+grep -q 'mainuan-text' <<< "${text_default}" && pass "Plymouth text theme mainuan-text" || fail "Plymouth text theme mainuan-text (${text_default})"
+anim="$(unsquashfs -lls "${squash}" usr/share/plymouth/themes/mainuan/throbber-0001.png 2>/dev/null | tail -1)"
+[[ "${anim}" == -* ]] && pass "Plymouth animation is a regular file (reaches the initramfs)" \
+  || fail "Plymouth animation is a regular file (reaches the initramfs)"
+
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
 
