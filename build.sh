@@ -29,6 +29,10 @@ function check-build-dependencies {
     [rsync]="rsync"
     [git]="git"
     [bsdtar]="libarchive-tools"
+    [mksquashfs]="squashfs-tools"
+    [gpg]="gnupg"
+    [gpgv]="gpgv"
+    [sha256sum]="coreutils"
   )
 
 
@@ -56,20 +60,38 @@ function check-build-dependencies {
 }
 
 function download-image {
-    show-header "Download ISO image"
+    show-header "Download and verify the base ISO image"
 
     mkdir -p base
-    if [ -f "base/${flavour}.iso" ]; then
-      echo "The file is already fully retrieved; nothing to do."
-      return;
-    fi
+    local iso="base/${flavour}.iso"
 
     if [ -f "${url}" ]; then
-      cp "${url}" "base/${flavour}.iso"
-      return;
+      cp "${url}" "${iso}"
+    elif [ ! -f "${iso}" ] || ! echo "${base_iso_sha256}  ${iso}" | sha256sum --check --status; then
+      local release_dir="${base_iso_url%/*}"
+
+      echo "  - Verifying the signature of ${release_dir}/SHA256SUMS"
+      rm -f base/SHA256SUMS base/SHA256SUMS.gpg
+      wget --quiet -O base/SHA256SUMS     "${release_dir}/SHA256SUMS"
+      wget --quiet -O base/SHA256SUMS.gpg "${release_dir}/SHA256SUMS.gpg"
+
+      local gnupghome
+      gnupghome="$(mktemp -d)"
+      gpg --homedir "${gnupghome}" --batch --quiet --keyserver hkps://keyserver.ubuntu.com \
+          --recv-keys "${base_iso_signing_key}"
+      gpg --homedir "${gnupghome}" --batch --export "${base_iso_signing_key}" > "${gnupghome}/ubuntu-cdimage.gpg"
+      gpgv --keyring "${gnupghome}/ubuntu-cdimage.gpg" base/SHA256SUMS.gpg base/SHA256SUMS
+      rm -rf "${gnupghome}"
+
+      # The pinned checksum must be the one Ubuntu signed for this file name.
+      grep -qx "${base_iso_sha256} \*${base_iso_url##*/}" base/SHA256SUMS
+
+      echo "  - Downloading ${base_iso_url}"
+      wget --quiet --show-progress --progress=dot:giga -c "${base_iso_url}" -O "${iso}"
     fi
-    
-    wget --quiet --show-progress -c "${url}" -O "base/${flavour}.iso"
+
+    echo "  - Checking SHA-256 of ${iso}"
+    echo "${base_iso_sha256}  ${iso}" | sha256sum --check
 }
 
 function extract-image {
@@ -87,7 +109,7 @@ function extract-image {
       fi
     )
 
-    sudo unsquashfs -d chroot -f base/filesystem.squashfs
+    unsquashfs -d chroot -f base/filesystem.squashfs
 
     (
       cd "chroot"
@@ -224,47 +246,58 @@ function git-dot-files {
         return 0
     fi
 
-    set -f
-    IFS=$'\n'
-    for repo in $(sed "s|#.*||g" "${variant_data_dir}/git-dot-files.lst" ); do
-        [ -z "${repo}" ] && continue
+    # Line format (every source is pinned):
+    #   <repository>.git <commit-sha1>  > <target>
+    #   <archive-url>    <sha256>       > <target>
+    local line left target source pin workdir
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        [[ "${line}" == *">"* ]] || continue
+        left="${line%%>*}"
+        target="$(echo "${line#*>}" | xargs)"
+        read -r source pin <<< "${left}"
 
-        local workdir=$(mktemp -d -p "${PWD}/chroot/") || return 1;
-        local target=$(echo "${repo}" | sed 's|^.* ||');
-        local repo=$(echo "${repo}" | sed 's| .*$||');
+        workdir="$(mktemp -d -p "${PWD}/chroot/")"
 
-        echo "  - Cloning '${repo}' to '${target}'..."
-        echo
+        echo "  - '${source}' (${pin}) -> '${target}'"
 
-        if [[ "${repo}" == *.git ]]; then
-          git clone "${repo}" "${workdir}";
+        if [[ "${source}" == *.git ]]; then
+          if [[ ! "${pin}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Repository ${source} must be pinned to a full commit hash"
+            return 1
+          fi
+          git -C "${workdir}" init --quiet
+          git -C "${workdir}" fetch --quiet --depth 1 "${source}" "${pin}"
+          git -C "${workdir}" -c advice.detachedHead=false checkout --quiet FETCH_HEAD
+          test "$(git -C "${workdir}" rev-parse HEAD)" = "${pin}"
+          echo "${pin}  ${source}" >> "${PWD}/iso/components.sha256"
+          rm -rf "${workdir}/.git"
         else
-          wget -qO- "${repo}" |  bsdtar -xzf - -C "${workdir}" 
+          if [[ ! "${pin}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Archive ${source} must be pinned to its SHA-256"
+            return 1
+          fi
+          wget --quiet -O "${workdir}.archive" "${source}"
+          echo "${pin}  ${workdir}.archive" | sha256sum --check --quiet
+          echo "${pin}  ${source##*/}" >> "${PWD}/iso/components.sha256"
+          bsdtar -xzf "${workdir}.archive" -C "${workdir}"
+          rm -f "${workdir}.archive"
         fi
 
-        echo
         (
-          cd "${workdir}";
+          cd "${workdir}"
           if [ ! -d "${workdir}/rootfs" ]; then
-            if [ -d "${workdir}/.git" ]; then
-              rm -rf "${workdir}/.git"
-            fi
-            mkdir -p "${workdir}/rootfs";
-            mkdir -p "${workdir}/rootfs/${target}";
-            find . -mindepth 1 -maxdepth 1 ! -name rootfs -exec mv -t "${workdir}/rootfs/${target}" -- {} +;
+            mkdir -p "${workdir}/rootfs/${target}"
+            find . -mindepth 1 -maxdepth 1 ! -name rootfs -exec mv -t "${workdir}/rootfs/${target}" -- {} +
           fi
 
-          cd "${workdir}/rootfs";
-              
+          cd "${workdir}/rootfs"
           find . -type d -exec mkdir -p ../../{} \;
           find . \( -type f -o -type l \) -exec cp -a {} ../../{} \;
         )
 
-
         rm -rf "${workdir}"
-    done
-    IFS=$' '
-    set +f
+    done < "${list}"
     echo "  - Finished..."
 }
 
@@ -327,25 +360,42 @@ function pin-packages {
 }
 
 function install-deb-packages {
-    show-header "Install Debian packages outside repositories" 
+    show-header "Install Debian packages outside repositories"
 
-    if [ "$(sed 's|#.*||g' "${variant_data_dir}/install-deb-packages.lst" | sed '/^$/d' | xargs)" = "" ]; then
+    local list="${variant_data_dir}/install-deb-packages.lst"
+
+    if ! grep -vqE '^[[:space:]]*(#|$)' "${list}"; then
       echo "No Debian packages to install"
-      return
+      return 0
     fi
-    echo "  - Downloading packages"
-    echo
+
+    rm -rf "chroot/mita-i.debian-packages"
     mkdir -p "chroot/mita-i.debian-packages"
-    wget --quiet --show-progress -P "chroot/mita-i.debian-packages" $(sed "s|#.*||g" "${variant_data_dir}/install-deb-packages.lst"  | sed '/^$/d' | xargs)
+    : > "${PWD}/iso/components.sha256"
+
+    echo "  - Downloading and verifying packages"
+    echo
+    local package_url package_sha256 extra file
+    while read -r package_url package_sha256 extra; do
+      [ -n "${package_url}" ] || continue
+      if [[ ! "${package_sha256}" =~ ^[0-9a-f]{64}$ ]] || [ -n "${extra}" ]; then
+        echo "Each line of ${list##*/} needs: <url> <sha256> (${package_url})"
+        return 1
+      fi
+      file="chroot/mita-i.debian-packages/${package_url##*/}"
+      echo "    - ${package_url##*/}"
+      wget --quiet -O "${file}" "${package_url}"
+      echo "${package_sha256}  ${file}" | sha256sum --check --quiet
+      echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+    done < <(sed 's|#.*||' "${list}")
     echo
 
     echo "  - Installing packages"
     echo
-    chroot chroot /bin/bash -c "apt install -y /mita-i.debian-packages/*.deb"
+    chroot chroot /bin/bash -c "apt-get install -y /mita-i.debian-packages/*.deb"
     echo
 
     echo "  - Remove .deb files"
-    echo
     rm -rf "chroot/mita-i.debian-packages"
     echo
 }
@@ -515,7 +565,10 @@ style:
       s|^Comment|#Comment|;
       s|^#Name=.*|Name=Instalar o Sistema|;
     ' -i chroot/usr/share/applications/*calamares*.desktop
-    sed 's|^Name=.*|Name=Instalar o Sistema (OEM)|' -i chroot/usr/share/applications/*calamares*oem*.desktop
+    local oem
+    for oem in chroot/usr/share/applications/*calamares*oem*.desktop; do
+      [ -f "${oem}" ] && sed 's|^Name=.*|Name=Instalar o Sistema (OEM)|' -i "${oem}"
+    done
 
 
     echo "  - Generating slideshow"
@@ -579,6 +632,10 @@ function remove-packages-contents {
 
     for package in $(sed "s|#.*||g" "${variant_data_dir}/remove-packages-content.lst" | xargs); do
       echo "Removing '${package}' content"
+      if [ ! -f "chroot/var/lib/dpkg/info/${package}.list" ]; then
+        echo "  - ${package} is not installed, skipping"
+        continue
+      fi
       for file in $(cat "chroot/var/lib/dpkg/info/${package}.list"); do
         if [ -f "chroot/${file}" ]; then
           rm "chroot/${file}"
@@ -621,6 +678,10 @@ function reorganize-menu {
     for file in $(sed "s|#.*||g" "${variant_data_dir}/hide-apps-from-menu.lst" | xargs); do
       if [ -f "chroot/usr/local/share/applications/${file}" ]; then
         rm "chroot/usr/local/share/applications/${file}"
+      fi
+      if [ ! -f "chroot/usr/share/applications/${file}" ]; then
+        echo "    - ${file}: not installed, nothing to hide"
+        continue
       fi
       cp "chroot/usr/share/applications/${file}" "chroot/usr/local/share/applications"
       sed -i 's|\[Desktop Entry]|[Desktop Entry]\nNoDisplay=true|g' "chroot/usr/local/share/applications/${file}"
@@ -859,15 +920,6 @@ function remove-system-files {
     sleep 5
 }
 
-function install-electron {
-    show-header "Install Electron.js" 
-
-    mkdir -p chroot/usr/lib/electron
-    
-    wget -qO- https://github.com/electron/electron/releases/download/v44.1.0/electron-v44.1.0-linux-x64.zip \
-      | bsdtar -x -f - -C chroot/usr/lib/electron
-}
-
 function create-symlinks {
     show-header "Symbolic links"
 
@@ -997,6 +1049,37 @@ function umount-virtual-fs {
     rm -rf chroot/sbin.usr-is-merged || true &> /dev/null
 }
 
+function write-manifests {
+    show-header "Write package manifest and build information"
+
+    local base_name
+    base_name="$(iso-basename)"
+    mkdir -p iso
+
+    chroot chroot dpkg-query -W -f='${Package}\t${Version}\t${Architecture}\n' \
+      | sort > "iso/${base_name}.packages"
+    cp "iso/${base_name}.packages" image/casper/filesystem.manifest
+
+    {
+      echo "name=${name}"
+      echo "version=${system_version}${release_stage:+-${release_stage}}"
+      echo "code_name=${code_name}"
+      echo "architecture=amd64"
+      echo "base_iso=${base_iso_url}"
+      echo "base_iso_sha256=${base_iso_sha256}"
+      echo "builder_commit=$(git -C "$(dirname "${script}")" rev-parse HEAD 2>/dev/null || echo unknown)"
+      echo "build_date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "kernel=$(chroot chroot dpkg-query -W -f='${Version}' "$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)")"
+      echo "plasma=$(chroot chroot dpkg-query -W -f='${Version}' plasma-workspace)"
+      echo "qt=$(chroot chroot dpkg-query -W -f='${Version}' libqt6core6t64)"
+      echo "calamares=$(chroot chroot dpkg-query -W -f='${Version}' calamares)"
+      echo "xorriso=$(xorriso -version 2>/dev/null | head -n1)"
+      echo "squashfs_tools=$(dpkg-query -W -f='${Version}' squashfs-tools 2>/dev/null || echo unknown)"
+    } > "iso/${base_name}.build-info"
+    echo "  - $(wc -l < "iso/${base_name}.packages") packages"
+    cat "iso/${base_name}.build-info"
+}
+
 function build-squashfs {
     show-header "Compress system image"
 
@@ -1065,6 +1148,12 @@ function build-grub {
         echo "	insmod gfxterm"
         echo "	terminal_output gfxterm"
         echo "fi"
+        # Mirror the menu on the first serial port when there is one
+        # (headless machines, automated boot tests); harmless otherwise.
+        echo "if serial --unit=0 --speed=115200 ; then"
+        echo "    terminal_input --append serial"
+        echo "    terminal_output --append serial"
+        echo "fi"
 
         cat "image/boot/grub/loopback.cfg"
         echo
@@ -1101,7 +1190,7 @@ function build-grub {
         )
         
         grub-mkstandalone --format=i386-pc --output=isolinux/core.img                      \
-          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls"  \
+          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo"  \
           --modules="linux16 linux normal iso9660 biosdisk search" --locales="" --fonts="" \
           "boot/grub/grub.cfg=isolinux/grub.cfg"
           
@@ -1112,13 +1201,17 @@ function build-grub {
 function build-iso {
     show-header "Generate ISO image"
 
+    local iso_name
+    iso_name="$(iso-basename)"
+
     cd image
 
     mkdir -pv ".disk"
-    echo "${name} ${system_version} \"${code_name}\" - Daily amd64 $(date +%y.0.%-m-%-d)" > .disk/info
+    echo "${name} ${system_version}${release_stage:+ ${release_stage^^}} \"${code_name}\" - amd64 ($(date -u +%Y%m%d))" > .disk/info
 
-    bash -c '(find . -type f -print0 | xargs -0 md5sum | grep -v "\./md5sum.txt" > md5sum.txt)'
+    find . -type f ! -name md5sum.txt -print0 | sort -z | xargs -0 md5sum > md5sum.txt
     mkdir -pv ../iso
+    rm -f "../iso/${iso_name}.iso"
 
     xorriso -as mkisofs -iso-level 3 -full-iso9660-filenames        \
       -volid "${name}" -eltorito-boot boot/grub/bios.img            \
@@ -1127,27 +1220,32 @@ function build-iso {
       --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img             \
       -eltorito-alt-boot -e /EFI/BOOT/BOOTX64.efi                   \
       -no-emul-boot -append_partition 2 0xef isolinux/efiboot.img   \
-      -output "../iso/${name}-amd64.iso" -graft-points "."          \
+      -output "../iso/${iso_name}.iso" -graft-points "."            \
         /boot/grub/bios.img=isolinux/bios.img                       \
         /EFI/BOOT/BOOTX64.efi=isolinux/efiboot.img
-         
-    md5sum ../iso/${name}-amd64.iso > ../iso/${name}-amd64.md5
-    
-    ISO=$(readlink -f ../iso/${name}-amd64.iso)
 
     cd ..
-    
-    if [ -f "${ISO}" ]; then
-        echo
-        echo "  ISO image file: "
-        echo "    "$( du -sh "${ISO}")
-        echo
-        
-        return
+
+    if [ ! -s "iso/${iso_name}.iso" ]; then
+        echo "Failed to generate ISO"
+        return 1
     fi
 
-    echo "Failed to generate ISO"
-    exit 1
+    (
+      cd iso
+      sha256sum "${iso_name}.iso" > "${iso_name}.iso.sha256"
+      sha256sum --check "${iso_name}.iso.sha256"
+    )
+
+    echo
+    echo "  ISO image file: "
+    echo "    $(du -sh "iso/${iso_name}.iso")"
+    echo
+}
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+iso-basename() {
+    echo "${id}-${system_version}${release_stage:+-${release_stage}}-amd64"
 }
 #-----------------------------------------------------------------------------------------------------------------------------------------
 show-header() {
@@ -1281,13 +1379,18 @@ $(grep '^function' "${script}" | grep -Ev -- 'EXIT|function-template|show-header
     --bind-mount
 
 
-    "${option}" "$@"
+    (
+      set -Eeo pipefail
+      trap 'echo "ERROR in step ${option}, line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+      "${option}" "$@"
+    )
+    local status=$?
 
     show-header "Finish virtual FS" 
     --bind-umount
 
     echo
-    exit
+    exit "${status}"
   fi
   echo "Unknown option '${1}' availables:"
   echo
@@ -1362,10 +1465,18 @@ readonly variant_data_dir=$(readlink -f "./data/${variant}")
 source "${variant_data_dir}/distro.ini"
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
-if [ "${url}" = "" ]; then
-  iso_repository="https://cdimage.ubuntu.com/${flavour}/releases/${base}/release/"
-  iso_file=$(wget -q -O - "${iso_repository}" | grep -o "kubuntu-${base}.*amd64.iso" | head -n1)
-  url="https://cdimage.ubuntu.com/kubuntu/releases/${base}/release/${iso_file}"
+# The base image is pinned in distro.ini (base_iso_url, base_iso_sha256,
+# base_iso_signing_key). --iso=<file> only avoids the download: the local
+# file must still match the pinned SHA-256.
+for required in base_iso_url base_iso_sha256 base_iso_signing_key; do
+  if [ -z "${!required}" ]; then
+    echo "Error: '${required}' is not set in data/${variant}/distro.ini"
+    exit 1
+  fi
+done
+if [ -n "${url}" ] && [ ! -f "${url}" ]; then
+  echo "Error: --iso must point to a local copy of ${base_iso_url##*/}"
+  exit 1
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 mkdir -p ${variant}
@@ -1377,13 +1488,40 @@ if [ ! "${2}" = "" ]; then
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 if [ -f "${variant_data_dir}/BuildSteps" ]; then
-  cat "${variant_data_dir}/BuildSteps" | while read step;do
-    source "${variant_data_dir}/distro.ini";
-    --run-step "${step}";
-  done
+  while read -r step; do
+    [ -n "${step}" ] || continue
+    source "${variant_data_dir}/distro.ini"
+    ( --run-step "${step}" )
+    status=$?
+    [ "${status}" -eq 0 ] || exit "${status}"
+  done < "${variant_data_dir}/BuildSteps"
+  exit 0
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
-eval "$(grep '^function' ${script} | cut -d' ' -f2 | tr '\n' '\r' | sed 's|\r|;source \"${variant_data_dir}/distro.ini\";|g')"
+# Steps run in declaration order. Each one runs in a subshell with errexit, so
+# the first failing command stops the build with its step, line and command
+# (a failing step used to be ignored and the build went on).
+step_index=0
+while read -r step; do
+  step_index=$((step_index + 1))
+  current_step=$((step_index - 1))   # show-header runs in the step's subshell
+  if ! declare -F "${step}" > /dev/null; then
+    echo "  - Skipping '${step}'"
+    continue
+  fi
+  source "${variant_data_dir}/distro.ini"
+  (
+    set -Eeo pipefail
+    trap 'echo "ERROR in step ${step}, line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+    "${step}"
+  )
+  status=$?
+  if [ "${status}" -ne 0 ]; then
+    echo
+    echo "Build failed in step '${step}' (exit status ${status})."
+    exit "${status}"
+  fi
+done < <(grep '^function' "${script}" | cut -d' ' -f2)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------

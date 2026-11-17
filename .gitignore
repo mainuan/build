@@ -1,0 +1,3 @@
+# build output of ./build.sh <variant> (the variant data lives in data/)
+/base/
+__pycache__/
