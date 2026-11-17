@@ -536,6 +536,24 @@ function setup-calamares {
     # try_install, so an offline installation simply skips it, and users of
     # other languages get spell checking (KDE Sonnet) in their language.
 
+    echo "  - Default time zone (used when GeoIP has no answer): ${timezone}"
+    if [ ! -f "chroot/usr/share/zoneinfo/${timezone}" ]; then
+      echo "Unknown time zone '${timezone}' in distro.ini"
+      return 1
+    fi
+    local locale_conf="chroot/etc/calamares/modules/locale.conf"
+    local tz_region="${timezone%%/*}" tz_zone="${timezone#*/}"
+    if grep -q '^region:' "${locale_conf}"; then
+      sed -i "s|^region:.*|region: \"${tz_region}\"|" "${locale_conf}"
+    else
+      echo "region: \"${tz_region}\"" >> "${locale_conf}"
+    fi
+    if grep -q '^zone:' "${locale_conf}"; then
+      sed -i "s|^zone:.*|zone: \"${tz_zone}\"|" "${locale_conf}"
+    else
+      echo "zone: \"${tz_zone}\"" >> "${locale_conf}"
+    fi
+
     echo "  - Disable Internet check"
     sed -i 's|^        - internet|#        - internet|' "chroot/etc/calamares/modules/welcome.conf"
 
