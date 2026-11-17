@@ -152,6 +152,15 @@ function prepare-base-image {
     chroot "chroot" sh -c "echo 'locales locales/default_environment_locale select pt_BR.UTF-8'         | debconf-set-selections"
     chroot "chroot" sh -c "echo 'debconf debconf/frontend select Noninteractive'                        | debconf-set-selections"
 
+    # x86-64 baseline: never install amd64v3 package variants, even when the
+    # build host's CPU supports them (the ISO must boot on older machines).
+    # Removed again in cleanup-system-image, so installed systems keep APT's
+    # per-machine default.
+    cat > "chroot/etc/apt/apt.conf.d/99mainuan-build-baseline" <<'APT'
+#clear APT::Architecture-Variants;
+APT::Architecture-Variants "";
+APT
+
     # Regenerate vmlinuz and force casper
     local kernel=$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)
     chroot "chroot" apt update
@@ -1026,6 +1035,13 @@ function make-executable {
 function cleanup-system-image {
     show-header "Clear the system image" 
     
+    echo "  - Checking that no amd64v3 package variant was installed"
+    if chroot "chroot" dpkg-query -W -f='${Package} ${Architecture-Variant}\n' | grep -E ' amd64v[2-9]$'; then
+      echo "Package variants above require a newer CPU than x86-64 baseline"
+      return 1
+    fi
+    rm -f "chroot/etc/apt/apt.conf.d/99mainuan-build-baseline"
+
     echo "  - Cleaning up APT"
     chroot "chroot" apt clean
     chroot "chroot" apt -q modernize-sources -y

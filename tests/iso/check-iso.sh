@@ -67,6 +67,9 @@ done
 installed "linux-image-${kernel_version}" && pass "kernel ${kernel_version} matches the installed linux-image" \
   || fail "kernel ${kernel_version} matches the installed linux-image"
 
+grep -q '^Architecture-Variant: amd64v[2-9]' <<< "${status}" \
+  && fail "x86-64 baseline (no amd64v3 package variants)" || pass "x86-64 baseline (no amd64v3 package variants)"
+
 contents="$(unsquashfs -lc "${squash}" 2>/dev/null | sed 's|^squashfs-root||')"
 for path in /etc/calamares/settings.conf /etc/calamares/branding/vendor/branding.desc \
             /etc/xdg/kcm-about-distrorc /usr/share/plasma/avatars/logoMainuan.png; do
