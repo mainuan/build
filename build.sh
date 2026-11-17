@@ -1228,18 +1228,27 @@ function build-grub {
         cd image
         touch "${name}"
 
-        grub-mkstandalone                                   \
-          --format=x86_64-efi                               \
-          --output=isolinux/bootx64.efi                     \
-          --locales=""                                      \
-          --fonts="" "boot/grub/grub.cfg=isolinux/grub.cfg"
+        # UEFI with Secure Boot: the signed chain of the verified base image
+        # (shim signed by Microsoft, GRUB signed by Canonical). This GRUB
+        # finds the medium by /.disk/info and reads /boot/grub/grub.cfg;
+        # the kernel copied from the image is Ubuntu's signed kernel.
+        local signed="${PWD}/../efi-signed"
+        rm -rf "${signed}"
+        mkdir -p "${signed}"
+        osirrox -indev "../base/${flavour}.iso" -extract /EFI/boot "${signed}" > /dev/null
+        chmod -R u+w "${signed}"
+        for efi in bootx64.efi grubx64.efi mmx64.efi; do
+          [ -s "${signed}/${efi}" ] || { echo "Missing ${efi} in the base image"; return 1; }
+        done
+        cp isolinux/grub.cfg boot/grub/grub.cfg
 
         (
-            cd isolinux 
+            cd isolinux
+            rm -f efiboot.img
             dd if=/dev/zero of=efiboot.img bs=1M count=10
             mkfs.vfat efiboot.img
             mmd -i efiboot.img efi efi/boot
-            mcopy -i efiboot.img ./bootx64.efi ::efi/boot/
+            mcopy -i efiboot.img "${signed}/bootx64.efi" "${signed}/grubx64.efi" "${signed}/mmx64.efi" ::efi/boot/
         )
         
         grub-mkstandalone --format=i386-pc --output=isolinux/core.img                      \

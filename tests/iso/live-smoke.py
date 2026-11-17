@@ -23,6 +23,9 @@ import sys
 import tempfile
 import time
 
+OVMF_SECUREBOOT = [
+    ("/usr/share/OVMF/OVMF_CODE_4M.secboot.fd", "/usr/share/OVMF/OVMF_VARS_4M.ms.fd"),
+]
 OVMF_CANDIDATES = [
     ("/usr/share/OVMF/OVMF_CODE_4M.fd", "/usr/share/OVMF/OVMF_VARS_4M.fd"),
     ("/usr/share/edk2/x64/OVMF_CODE.4m.fd", "/usr/share/edk2/x64/OVMF_VARS.4m.fd"),
@@ -57,16 +60,19 @@ CHECKS = {
     "kernel_warnings": "dmesg --level=err,warn 2>/dev/null | tail -40 || "
                        "sudo -n dmesg --level=err,warn | tail -40",
     "memory": "free -m",
+    "secure_boot": "f=$(ls /sys/firmware/efi/efivars/SecureBoot-* 2>/dev/null | head -1); "
+                   "if [ -n \"$f\" ]; then od -An -t u1 \"$f\" | awk '{print \"SecureBoot=\" $NF}'; "
+                   "else echo 'SecureBoot=n/a'; fi",
     "cpu_flags": "grep -m1 -o -w -E 'avx2|avx|sse4_2' /proc/cpuinfo | sort -u | tr '\\n' ' '",
     "disk": "df -h / /cdrom 2>/dev/null",
 }
 
 
-def find_ovmf():
-    for code, vars_ in OVMF_CANDIDATES:
+def find_ovmf(secure_boot=False):
+    for code, vars_ in (OVMF_SECUREBOOT if secure_boot else OVMF_CANDIDATES):
         if os.path.exists(code) and os.path.exists(vars_):
             return code, vars_
-    sys.exit("OVMF firmware not found")
+    sys.exit("OVMF firmware not found" + (" (Secure Boot with Microsoft keys)" if secure_boot else ""))
 
 
 class Qmp:
@@ -146,7 +152,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("iso")
-    parser.add_argument("--firmware", choices=["uefi", "bios"], default="uefi")
+    parser.add_argument("--firmware", choices=["uefi", "uefi-sb", "bios"], default="uefi",
+                        help="uefi-sb: OVMF with Secure Boot on and Microsoft keys enrolled")
     parser.add_argument("--memory", default="6144")
     parser.add_argument("--cpus", default="4")
     parser.add_argument("--user", default="mainuan")
@@ -176,10 +183,14 @@ def main():
         command += ["-enable-kvm", "-cpu", args.cpu_model or "host"]
     else:
         command += ["-cpu", args.cpu_model or "max"]
-    if args.firmware == "uefi":
-        code, vars_template = find_ovmf()
+    if args.firmware in ("uefi", "uefi-sb"):
+        secure_boot = args.firmware == "uefi-sb"
+        code, vars_template = find_ovmf(secure_boot)
         vars_copy = os.path.join(work, "OVMF_VARS.fd")
         shutil.copyfile(vars_template, vars_copy)
+        if secure_boot:
+            command[command.index("q35")] = "q35,smm=on"
+            command += ["-global", "driver=cfi.pflash01,property=secure,value=on"]
         command += ["-drive", f"if=pflash,format=raw,readonly=on,file={code}",
                     "-drive", f"if=pflash,format=raw,file={vars_copy}"]
 
@@ -257,12 +268,16 @@ def main():
         "mainuan_os_release": 'NAME="Mainuan"' in checks.get("os_release", ""),
         "poweroff": report["steps"].get("poweroff") == "ok",
     }
+    if args.firmware == "uefi-sb":
+        verdict["secure_boot_enabled"] = "SecureBoot=1" in checks.get("secure_boot", "")
     report["verdict"] = verdict
     with open(os.path.join(args.out, "report.json"), "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2, ensure_ascii=False)
     for key, value in verdict.items():
         print(f"{'PASS' if value else 'FAIL'}  {key}")
-    required = ("booted", "system_running", "graphical", "plasma", "mainuan_os_release")
+    required = ["booted", "system_running", "graphical", "plasma", "mainuan_os_release"]
+    if args.firmware == "uefi-sb":
+        required.append("secure_boot_enabled")
     return 0 if all(verdict[key] for key in required) else 1
 
 

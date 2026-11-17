@@ -43,6 +43,21 @@ else
   tail -20 "${work}/osirrox.log"
 fi
 
+# 3b. UEFI Secure Boot chain inside the EFI boot image.
+esp="${extract}/EFI/BOOT/BOOTX64.efi"
+if [ -f "${esp}" ] && command -v mcopy > /dev/null; then
+  for efi in bootx64.efi grubx64.efi mmx64.efi; do
+    mcopy -n -i "${esp}" "::efi/boot/${efi}" "${work}/${efi}" 2> /dev/null && pass "EFI image has ${efi}" || fail "EFI image has ${efi}"
+  done
+  grep -aq 'Microsoft Corporation UEFI CA' "${work}/bootx64.efi" 2> /dev/null \
+    && pass "shim signed by the Microsoft UEFI CA" || fail "shim signed by the Microsoft UEFI CA"
+  grep -aq 'Canonical' "${work}/grubx64.efi" 2> /dev/null \
+    && pass "GRUB signed by Canonical" || fail "GRUB signed by Canonical"
+else
+  fail "EFI boot image readable (mtools)"
+fi
+[ -f "${extract}/boot/grub/grub.cfg" ] && pass "file /boot/grub/grub.cfg (signed GRUB)" || fail "file /boot/grub/grub.cfg (signed GRUB)"
+
 cfg="${extract}/isolinux/grub.cfg"
 grep -q 'boot=casper' "${cfg}" && pass "GRUB entry boots casper" || fail "GRUB entry boots casper"
 grep -q 'serial --unit=0' "${cfg}" && pass "GRUB serial mirror" || fail "GRUB serial mirror"
