@@ -10,6 +10,7 @@ Construtor da imagem ISO oficial do **Mainuan Linux**, baseada no Kubuntu 26.04 
 [![Release](https://img.shields.io/github/v/release/mainuan/build?include_prereleases&label=release)](https://github.com/mainuan/build/releases)
 ![Base](https://img.shields.io/badge/base-Kubuntu%2026.04%20LTS-0079c1)
 ![Plasma](https://img.shields.io/badge/KDE%20Plasma-6.6-1d99f3)
+[![Licença](https://img.shields.io/github/license/mainuan/build)](LICENSE)
 ![Arquitetura](https://img.shields.io/badge/arquitetura-amd64%20(x86--64%20b%C3%A1sico)-555)
 
 </div>
@@ -148,4 +149,4 @@ Construtor criado por **Natanael Barbosa Santos** ([@natanael-art](https://githu
 
 ## Licença
 
-Este repositório ainda não declara uma licença. Até que os autores definam uma, os direitos ficam reservados a eles.
+GNU General Public License, versão 2 (GPL-2.0). Texto completo em [`LICENSE`](LICENSE).
