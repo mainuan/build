@@ -63,6 +63,8 @@ for package in casper calamares sddm plasma-workspace kwin-wayland plasma-deskto
                mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade mainuan-gestao-drivers \
                painel-de-controle mainuan-grub-editor mainuan-flatpak-install-gui mainuan-install-appimage \
                mainuan-atualizador-recursos pkg-manager-gui onlyoffice-desktopeditors firefox \
+               mainuan-wallpapers mainuan-icon-themes mainuan-plasma-themes mainuan-desktop-defaults \
+               mainuan-user-avatar \
                language-pack-pt; do
   installed "${package}" && pass "package ${package} installed" || fail "package ${package} installed"
 done

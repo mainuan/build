@@ -1,13 +1,7 @@
-# Recursos copiados para a imagem. Cada fonte é fixada:
+# Recursos copiados para a imagem a partir de git ou de arquivos. Cada fonte
+# é fixada:
 #   <repositório>.git <commit SHA-1 completo> > <destino>
 #   <URL de arquivo>  <SHA-256>               > <destino>
-# Atualize o commit/hash ao publicar uma versão nova do recurso.
-https://github.com/mainuan/dot-files.git      f4117f0d34a767d6e283f78e88e93a0a32151707 > /
-https://github.com/mainuan/wallpapers.git     062e7d7564ca4f2b89ee4f8b05aa5a5f940438ef > /usr/share/wallpapers
-https://github.com/mainuan/plasma-themes.git  86632b09ddd71663d4a583a8d9be7c22a5af3aa1 > /
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-brown.tar.gz   838d594ded123cefc75fb33b22b490e087b937d20486dc5704be355ed723119a > /usr/share/icons
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-cyan.tar.gz    c2aef7c6cdf8d9610bd90591339e5982e5e2955c99913b5ffdcad1e3187e167e > /usr/share/icons
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-grey.tar.gz    1034d81ab7f06b5188c9a0f0d0ba97d199da60019cd0d8fb2e169e8e89433184 > /usr/share/icons
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-lima.tar.gz    e9210b21707b90000c82ae0773835bc58cbb90a2a43e9056c256b0e9fbfa5e2d > /usr/share/icons
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-magenta.tar.gz a88b44095161b78d2a9c969297a91e33af1038b95faadd422db3f8564f6126cc > /usr/share/icons
-https://github.com/mainuan/icons/raw/c161cc2f2c58771b714154541b9a08695e0ebf6e/kora-violet.tar.gz  a3fa03ca22a6d1c74786312cb4cd940c1f05ebf77da5158fb8ef2e86e3db3677 > /usr/share/icons
+#
+# Os recursos do Mainuan (dot-files, wallpapers, plasma-themes, icons) agora
+# são pacotes Debian versionados, instalados por install-deb-packages.lst.

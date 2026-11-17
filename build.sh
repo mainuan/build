@@ -62,7 +62,8 @@ function check-build-dependencies {
 function download-image {
     show-header "Download and verify the base ISO image"
 
-    mkdir -p base
+    mkdir -p base iso
+    : > iso/components.sha256
     local iso="base/${flavour}.iso"
 
     if [ -f "${url}" ]; then
@@ -169,7 +170,7 @@ APT
 
     # Regenerate vmlinuz and force casper
     local kernel=$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)
-    chroot "chroot" apt update
+    chroot-apt-update
     chroot "chroot" apt install casper ${kernel} --reinstall --allow-downgrades -y
     if [ -f "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom" ]; then
       rm "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom";
@@ -248,7 +249,7 @@ function launchpad-repositories {
     done
     set +f
 
-    chroot "chroot" sudo apt update
+    chroot-apt-update
 }
 
 function git-dot-files {
@@ -371,7 +372,7 @@ function pin-packages {
       ) >> "chroot/etc/apt/preferences.d/mitai"
     done
     IFS=$' '
-    chroot "chroot" sudo apt update
+    chroot-apt-update
 }
 
 function install-deb-packages {
@@ -386,7 +387,6 @@ function install-deb-packages {
 
     rm -rf "chroot/mita-i.debian-packages"
     mkdir -p "chroot/mita-i.debian-packages"
-    : > "${PWD}/iso/components.sha256"
 
     echo "  - Downloading and verifying packages"
     echo
@@ -682,7 +682,7 @@ function remove-packages-contents {
       done
     done 
     chroot chroot/ dpkg --clear-avail
-    chroot chroot/ apt-get update
+    chroot-apt-update
 }
 
 function reorganize-menu {
@@ -1291,6 +1291,20 @@ function build-iso {
     echo
 }
 
+#-----------------------------------------------------------------------------------------------------------------------------------------
+chroot-apt-update() {
+    # Index downloads fail as errors (APT::Update::Error-Mode). Launchpad PPAs
+    # sometimes answer 503 for minutes: retry the whole update a few times.
+    local attempt
+    for attempt in 1 2 3 4; do
+      if chroot "chroot" apt-get update; then
+        return 0
+      fi
+      echo "  - apt-get update failed (attempt ${attempt}/4), retrying in $((attempt * 60)) s"
+      sleep $((attempt * 60))
+    done
+    chroot "chroot" apt-get update
+}
 #-----------------------------------------------------------------------------------------------------------------------------------------
 iso-basename() {
     echo "${id}-${system_version}${release_stage:+-${release_stage}}-amd64"
