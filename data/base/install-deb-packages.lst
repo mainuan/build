@@ -23,7 +23,7 @@ https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.2.3/main
 # debhelper-compat); volta quando houver release do pipeline compartilhado.
 https://github.com/mainuan/mainuan-flatpak-install-gui/releases/download/v1.1/mainuan-flatpak-install-gui_1.1_all.deb c5b9bb0f2adf41304ce671616fdcdf0da862bc898181c1b3aab020c30b9f70fa
 https://github.com/mainuan/mainuan-install-AppImage/releases/download/v2.1.0/mainuan-install-appimage_2.1.0_all.deb a4555e8d61893746eff8070ebbaa3f570476ed0b77cad6ef661210b5e1a83617
-https://github.com/mainuan/pkg-manager-gui/releases/download/v1.1.0/pkg-manager-gui_1.1.0_all.deb 1aa6fe80beef275798641e7d1562fda07fb5e3c76e30e823fea66c4f5fd20df0
+https://github.com/mainuan/pkg-manager-gui/releases/download/v1.1.1/pkg-manager-gui_1.1.1_all.deb bce0e0bce4b52b52c29d95ef980606c42ef20ec08180ba276a6210f004244960
 #
 https://github.com/mainuan/deb-manager-gui/releases/download/v1.0.0/deb-manager-gui_1.0.0_all.deb 009cdd00d5cb7b438256755edac359cece04f1502eadf37fb8328bfb125abc00
-https://github.com/mainuan/instalador-de-fontes/releases/download/v1.1.0/instalador-de-fontes_1.1.0_all.deb 07b2b6a6737db53f3495fcdf4504128a1d411288006cd13a6cb0f19c65c67b82
+https://github.com/mainuan/instalador-de-fontes/releases/download/v1.1.1/instalador-de-fontes_1.1.1_all.deb f6238911370406a86d1334d2318a3fb7f7ff66bedda6bd4a725a98acfb175178
