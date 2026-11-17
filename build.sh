@@ -394,9 +394,10 @@ function upgrade-base-packages {
     # kernel /boot/vmlinuz points to (the one that boots the ISO).
     local current old_kernels=()
     current="$(readlink chroot/boot/vmlinuz)"; current="${current#vmlinuz-}"
+    local current_version="${current%-generic}"   # e.g. 7.0.0-43
     while read -r package; do
       case "${package}" in
-        *"${current}"*) ;;
+        *"-${current_version}" | *"-${current_version}-"*) ;;
         *) old_kernels+=("${package}") ;;
       esac
     done < <(chroot chroot dpkg-query -W -f='${Package} ${Status}\n' \
