@@ -156,9 +156,15 @@ function prepare-base-image {
     # build host's CPU supports them (the ISO must boot on older machines).
     # Removed again in cleanup-system-image, so installed systems keep APT's
     # per-machine default.
+    # Downloads are retried (Launchpad PPAs answer 503 now and then), and a
+    # repository index that cannot be fetched is an error, not a warning that
+    # would leave the image built from stale indexes.
     cat > "chroot/etc/apt/apt.conf.d/99mainuan-build-baseline" <<'APT'
 #clear APT::Architecture-Variants;
 APT::Architecture-Variants "";
+Acquire::Retries "5";
+Acquire::Retries::Delay::Maximum "60";
+APT::Update::Error-Mode "any";
 APT
 
     # Regenerate vmlinuz and force casper
@@ -769,6 +775,32 @@ function reorganize-menu {
 
 }
 
+
+function default-applications {
+    show-header "Default applications for file types"
+
+    local list="${variant_data_dir}/default-applications.lst"
+    if [ ! -f "${list}" ] || ! grep -vqE '^[[:space:]]*(#|$)' "${list}"; then
+      echo "No default applications to set"
+      return 0
+    fi
+
+    # System-wide defaults (XDG); user choices in ~/.config/mimeapps.list win.
+    local file="chroot/etc/xdg/mimeapps.list" mime desktop
+    touch "${file}"
+    grep -q '^\[Default Applications\]' "${file}" || printf '[Default Applications]\n' >> "${file}"
+    while IFS='=' read -r mime desktop; do
+      mime="$(echo "${mime}" | xargs)"; desktop="$(echo "${desktop}" | xargs)"
+      [ -n "${mime}" ] && [ -n "${desktop}" ] || continue
+      if [ ! -f "chroot/usr/share/applications/${desktop}" ]; then
+        echo "${desktop} is not installed (default for ${mime})"
+        return 1
+      fi
+      sed -i "\|^${mime}=|d" "${file}"
+      sed -i "/^\[Default Applications\]/a ${mime}=${desktop};" "${file}"
+      echo "  - ${mime} -> ${desktop}"
+    done < <(sed 's|#.*||' "${list}")
+}
 
 function apply-mitai-directory {
     show-header "Apply Mita'i OS root structure" 

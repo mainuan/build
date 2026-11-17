@@ -44,7 +44,12 @@ CHECKS = {
                     "loginctl show-session \"$s\" -p Type -p Name -p Desktop; done || true",
     "mainuan_packages": "dpkg-query -W -f='${Package}\\t${Version}\\t${Status}\\n' "
                         "mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade "
-                        "mainuan-gestao-drivers calamares plasma-workspace 2>&1 || true",
+                        "mainuan-gestao-drivers painel-de-controle mainuan-grub-editor "
+                        "mainuan-flatpak-install-gui mainuan-install-appimage "
+                        "mainuan-atualizador-recursos pkg-manager-gui calamares plasma-workspace "
+                        "2>&1 || true",
+    "default_apps": "cat /etc/xdg/mimeapps.list 2>/dev/null; "
+                    "xdg-mime query default application/vnd.flatpak.ref 2>/dev/null || true",
     "network": "ip -brief address; resolvectl status 2>/dev/null | head -20 || true",
     "dns": "getent hosts archive.ubuntu.com || echo 'no DNS answer'",
     "apt_policy": "apt-cache policy 2>/dev/null | head -20",

@@ -1,11 +1,22 @@
 # Pacotes .deb instalados fora dos repositórios APT.
 # Formato: <URL> <SHA-256>. Somente versões publicadas e verificadas; nada de
 # "latest" ou "continuous" sem hash (o build falha se o arquivo mudar).
+#
+# Escritório
 https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v10.0.0/onlyoffice-desktopeditors_amd64.deb 2190edb4022a2ac2f6eee0f78815520f0e4ece1e8a1097c645a6f9b225c8b59c
+#
+# Aplicativos Mainuan
 https://github.com/mainuan/welcome/releases/download/v1.0.1/mainuan-welcome_1.0.1_amd64.deb 2e2b2477e29d7b8eb4b420c8a6115cd0ebff23a01f66ecd6b4bb7411f06a2d80
+https://github.com/mainuan/alerta-atualizacao/releases/download/v2.0.5/system-upgrade_2.0.5_amd64.deb 034c23a2156b370ceb1339927a5d85cd4494d211a89aec0f156e4a0a41c623ce
+https://github.com/mainuan/painel-de-controle/releases/download/v1.1.0/painel-de-controle_1.1.0_amd64.deb 31651ab444011663bd7d3888f8c3deffc01c763cf3b6b72b29e6cfc9c231fe1b
+https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.0/mainuan-gestao-drivers_1.0_all.deb d7a1c98743a204f6b5770c7746cb02b3b4d66c09d2d368966118ac39fa47b912
+https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.2.3/mainuan-atualizador-recursos_0.2.3_all.deb 193730fd6521a283c728f33aafd3542bbd772551770a9604beb213974331805a
+https://github.com/mainuan/mainuan-grub-editor/releases/download/v2.1.0/mainuan-grub-editor_2.1.0_all.deb 1a53a1fa20e030b4153080d3ef69ece84f2d81c630c9546acfef292878524068
+https://github.com/mainuan/mainuan-flatpak-install-gui/releases/download/v1.1/mainuan-flatpak-install-gui_1.1_all.deb c5b9bb0f2adf41304ce671616fdcdf0da862bc898181c1b3aab020c30b9f70fa
+https://github.com/mainuan/mainuan-install-AppImage/releases/download/v2.1.0/mainuan-install-appimage_2.1.0_all.deb a4555e8d61893746eff8070ebbaa3f570476ed0b77cad6ef661210b5e1a83617
+https://github.com/mainuan/pkg-manager-gui/releases/download/v1.1.0/pkg-manager-gui_1.1.0_all.deb 1aa6fe80beef275798641e7d1562fda07fb5e3c76e30e823fea66c4f5fd20df0
+#
+# Ainda sem release versionada (PRs #1 aguardando merge do mantenedor):
+# fixados pelo hash do asset "continuous" atual.
 https://github.com/mainuan/deb-manager-gui/releases/download/continuous/deb-manager-gui.deb 1318d595a9b2421f368691d0becd53c90117f2cc1038c746258f6c58d233772f
 https://github.com/mainuan/instalador-de-fontes/releases/download/continuous/instalador-de-fontes.deb 9cfe775836ae43eef7ae99e46c54a11913d0ac7020edbfe6c866410f4eaca6be
-https://github.com/mainuan/pkg-manager-gui/releases/download/1.0.0/flatpak-manager-gui.deb 55cd2a3c4396bf4d9d7b79350f80db2dea240ccbb605769511286cc3c5eb1806
-https://github.com/mainuan/alerta-atualizacao/releases/download/v2.0.4/system-upgrade_2.0.4_amd64.deb 5fffb0f7936639acd9d729a4a7c63750bd740eba21cf20005b91a5bc093be962
-https://github.com/mainuan/painel-de-controle/releases/download/v1.0/PainelControle.deb 710c7b878cf680e557e77d7f3df6563034cf1c73ab60f887f670241e43c7b274
-https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.0/mainuan-gestao-drivers_1.0_all.deb d7a1c98743a204f6b5770c7746cb02b3b4d66c09d2d368966118ac39fa47b912

@@ -61,6 +61,8 @@ status="$(sq var/lib/dpkg/status)"
 installed() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Status: install ok installed/{ok=1} END{exit !ok}' <<< "${status}"; }
 for package in casper calamares sddm plasma-workspace kwin-wayland plasma-desktop grub-efi-amd64-signed shim-signed \
                mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade mainuan-gestao-drivers \
+               painel-de-controle mainuan-grub-editor mainuan-flatpak-install-gui mainuan-install-appimage \
+               mainuan-atualizador-recursos pkg-manager-gui onlyoffice-desktopeditors firefox \
                language-pack-pt; do
   installed "${package}" && pass "package ${package} installed" || fail "package ${package} installed"
 done
