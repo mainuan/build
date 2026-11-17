@@ -186,6 +186,12 @@ jobs:
           python3 tests/iso/live-smoke.py "$VARIANT/iso/${{ steps.iso.outputs.name }}.iso" \
             --firmware uefi --memory 6144 --cpus 4 --out "$VARIANT/iso/live-uefi"
 
+      - name: Live boot test (UEFI with Secure Boot)
+        working-directory: /mnt/mainuan-build
+        run: |
+          python3 tests/iso/live-smoke.py "$VARIANT/iso/${{ steps.iso.outputs.name }}.iso" \
+            --firmware uefi-sb --memory 6144 --cpus 4 --out "$VARIANT/iso/live-uefi-sb"
+
       - name: Live boot test (BIOS)
         working-directory: /mnt/mainuan-build
         run: |
@@ -227,7 +233,7 @@ jobs:
         run: |
           set -euo pipefail
           cp logs/base/iso/check-iso.log release/
-          for fw in uefi bios; do
+          for fw in uefi uefi-sb bios; do
             cp "logs/base/iso/live-$fw/report.json" "release/live-$fw-report.json"
           done
           cp logs/base/iso/live-uefi/live.png release/live-uefi.png
