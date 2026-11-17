@@ -125,6 +125,7 @@ jobs:
           set -o pipefail
           sudo ./build.sh "$VARIANT" 2>&1 | tee build.log
           sudo chown -R "$(id -u):$(id -g)" "$VARIANT/iso"
+          sudo install -d -o "$(id -u)" -g "$(id -g)" "$VARIANT/release"
           df -h /mnt
 
       - name: Collect the ISO
