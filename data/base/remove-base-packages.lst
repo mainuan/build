@@ -34,18 +34,6 @@ plasma-welcome
 remmina
 #################################################
 ##
-##     Fcitx 5
-##
-#################################################
-fcitx5
-fcitx5-config-qt
-fcitx5-frontend-all
-libfcitx5core7
-fcitx5-chinese-addons-data
-fcitx5-material-color
-im-config
-#################################################
-##
 ##     Libre Office
 ##
 #################################################
