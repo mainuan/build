@@ -102,6 +102,12 @@ done
 grep -q '^/tmp/.' <<< "${contents}" && fail "empty /tmp" || pass "empty /tmp"
 grep -q '^/etc/apt/sources.list.d/cdrom.sources$' <<< "${contents}" && fail "no cdrom APT source" || pass "no cdrom APT source"
 
+context="$(sq etc/calamares/modules/before_bootloader_context.conf)"
+grep -q 'cdrom' <<< "${context}" && fail "Calamares UEFI step does not need a repository on the medium" \
+  || pass "Calamares UEFI step does not need a repository on the medium"
+locale_conf="$(sq etc/calamares/modules/locale.conf)"
+grep -qx 'zone: "Sao_Paulo"' <<< "${locale_conf}" && pass "Calamares default zone Sao_Paulo" || fail "Calamares default zone Sao_Paulo"
+
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
 

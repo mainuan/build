@@ -554,6 +554,29 @@ function setup-calamares {
       echo "zone: \"${tz_zone}\"" >> "${locale_conf}"
     fi
 
+    # Kubuntu installs grub-efi-amd64-signed and shim-signed for UEFI from the
+    # APT repository on its own medium (cdrom.sources + /pool). This image has
+    # no such repository (cdrom.sources is removed in extract-image) and ships
+    # both packages already installed, so the UEFI install failed at
+    # "cp /etc/apt/sources.list.d/cdrom.sources". Check them instead.
+    echo "  - UEFI bootloader packages come from the image itself"
+    for package in grub-efi-amd64-signed shim-signed; do
+      chroot chroot dpkg-query -W -f='${Status}\n' "${package}" | grep -qx 'install ok installed' || {
+        echo "${package} must be installed in the image"; return 1; }
+    done
+    cat > "chroot/etc/calamares/modules/before_bootloader_context.conf" <<'CONF'
+# Mainuan: the signed EFI bootloader packages are part of the image (there
+# is no package repository on the medium); only check that they are there.
+---
+firmwareType:
+    bios:    "-/bin/true"
+    "*":
+        -    command: "dpkg -s grub-efi-amd64-signed | grep -qx 'Status: install ok installed'"
+             timeout: 10
+        -    command: "dpkg -s shim-signed | grep -qx 'Status: install ok installed'"
+             timeout: 10
+CONF
+
     echo "  - Disable Internet check"
     sed -i 's|^        - internet|#        - internet|' "chroot/etc/calamares/modules/welcome.conf"
 
