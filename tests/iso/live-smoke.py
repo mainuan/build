@@ -52,6 +52,7 @@ CHECKS = {
     "kernel_warnings": "dmesg --level=err,warn 2>/dev/null | tail -40 || "
                        "sudo -n dmesg --level=err,warn | tail -40",
     "memory": "free -m",
+    "cpu_flags": "grep -m1 -o -w -E 'avx2|avx|sse4_2' /proc/cpuinfo | sort -u | tr '\\n' ' '",
     "disk": "df -h / /cdrom 2>/dev/null",
 }
 
@@ -147,6 +148,8 @@ def main():
     parser.add_argument("--out", default="live-smoke")
     parser.add_argument("--boot-timeout", type=int, default=900)
     parser.add_argument("--no-kvm", action="store_true")
+    parser.add_argument("--cpu-model", default="",
+                        help="QEMU CPU model, e.g. Nehalem (no AVX) to check the x86-64 baseline")
     args = parser.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -165,9 +168,9 @@ def main():
         "-qmp", f"unix:{qmp_path},server=on,wait=off",
     ]
     if not args.no_kvm and os.access("/dev/kvm", os.R_OK | os.W_OK):
-        command += ["-enable-kvm", "-cpu", "host"]
+        command += ["-enable-kvm", "-cpu", args.cpu_model or "host"]
     else:
-        command += ["-cpu", "max"]
+        command += ["-cpu", args.cpu_model or "max"]
     if args.firmware == "uefi":
         code, vars_template = find_ovmf()
         vars_copy = os.path.join(work, "OVMF_VARS.fd")
@@ -176,6 +179,7 @@ def main():
                     "-drive", f"if=pflash,format=raw,file={vars_copy}"]
 
     report = {"iso": os.path.basename(args.iso), "firmware": args.firmware,
+              "cpu_model": args.cpu_model or "host",
               "kvm": "-enable-kvm" in command, "steps": {}, "checks": {}}
     started = time.monotonic()
     qemu = subprocess.Popen(command)
