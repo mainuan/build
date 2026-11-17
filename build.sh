@@ -604,7 +604,7 @@ Presentation
       if [[ "$file" =~ ^(icon|logo|welcome|welcome-oem)\.png$ ]]; then
         continue
       fi
-      ((counter++))
+      counter=$((counter + 1))
       echo "
     Slide {
         Image {
