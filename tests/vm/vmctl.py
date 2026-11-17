@@ -5,6 +5,7 @@
   vmctl.py <domain> click <x> <y> [W H]        left click at screen pixel x,y
   vmctl.py <domain> dclick <x> <y> [W H]       double click
   vmctl.py <domain> type <text>                type text (US keymap keys)
+  vmctl.py <domain> typebr <text>              type text for the guest's ABNT2 layout
   vmctl.py <domain> key <combo> [combo...]     e.g. ret, tab, ctrl-alt-t, meta_l
 
 Clicks need the absolute pointer of a usb-tablet (virt-install adds one).
@@ -25,6 +26,14 @@ SHIFTED = {
     ":": "semicolon", '"': "apostrophe", "<": "comma", ">": "dot", "?": "slash", "|": "backslash",
     "~": "grave_accent",
 }
+# Brazilian ABNT2 layout (the Mainuan default): keys that differ from US.
+ABNT2 = {
+    "/": ["ro"], "?": ["shift", "ro"], "\\": ["less"], "|": ["shift", "less"],
+    ";": ["slash"], ":": ["shift", "slash"], "'": ["grave_accent"], '"': ["shift", "grave_accent"],
+    "[": ["bracket_right"], "]": ["backslash"], "{": ["shift", "bracket_right"], "}": ["shift", "backslash"],
+    "~": ["apostrophe"], "^": ["shift", "apostrophe"], "`": ["shift", "bracket_left"],
+}
+
 PLAIN = {
     " ": "spc", "-": "minus", "=": "equal", "[": "bracket_left", "]": "bracket_right",
     ";": "semicolon", "'": "apostrophe", ",": "comma", ".": "dot", "/": "slash",
@@ -51,9 +60,11 @@ def send_keys(domain, keys):
     time.sleep(0.05)
 
 
-def type_text(domain, text):
+def type_text(domain, text, layout="us"):
     for char in text:
-        if char.isalpha() and char.isupper():
+        if layout == "br" and char in ABNT2:
+            send_keys(domain, ABNT2[char])
+        elif char.isalpha() and char.isupper():
             send_keys(domain, ["shift", char.lower()])
         elif char.isalnum():
             send_keys(domain, [char])
@@ -93,6 +104,8 @@ def main():
         click(domain, int(args[0]), int(args[1]), width, height, 2 if action == "dclick" else 1)
     elif action == "type":
         type_text(domain, " ".join(args))
+    elif action == "typebr":
+        type_text(domain, " ".join(args), layout="br")
     elif action == "key":
         for combo in args:
             send_keys(domain, combo.split("-"))
