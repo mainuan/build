@@ -389,6 +389,23 @@ function upgrade-base-packages {
     chroot-apt-get full-upgrade -y --allow-downgrades \
       -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
     echo "  - Pending updates after upgrade: $(chroot chroot apt-get -s full-upgrade | grep -c '^Inst ' || true)"
+
+    # A kernel update installs a new ABI next to the old one: keep only the
+    # kernel /boot/vmlinuz points to (the one that boots the ISO).
+    local current old_kernels=()
+    current="$(readlink chroot/boot/vmlinuz)"; current="${current#vmlinuz-}"
+    while read -r package; do
+      case "${package}" in
+        *"${current}"*) ;;
+        *) old_kernels+=("${package}") ;;
+      esac
+    done < <(chroot chroot dpkg-query -W -f='${Package} ${Status}\n' \
+               'linux-image-[0-9]*' 'linux-modules-[0-9]*' 'linux-modules-extra-[0-9]*' 'linux-headers-[0-9]*' 2>/dev/null \
+             | awk '$NF == "installed" {print $1}')
+    if [ "${#old_kernels[@]}" -gt 0 ]; then
+      echo "  - Removing kernels other than ${current}: ${old_kernels[*]}"
+      chroot-apt-get purge -y "${old_kernels[@]}"
+    fi
 }
 
 function install-deb-packages {
