@@ -185,6 +185,10 @@ function remove-base-packages {
     mkdir -p chroot/var/lib/snapd chroot/var/snap chroot/usr/lib/snapd
     find chroot/etc/systemd -name "*snap*" -delete
     find chroot/etc/systemd -type d -name "*snap*" -exec rm -r {} +
+    # udev rules written by snapd for each installed snap (not owned by any
+    # package); they call /usr/lib/snapd/snap-device-helper, removed above, and
+    # filled the journal with errors on every device event.
+    rm -f chroot/etc/udev/rules.d/*snap*.rules
 
     if [ "$(sed 's|#.*||g' "${variant_data_dir}/remove-base-packages.lst" | sed '/^$/d' | xargs)" = "" ]; then
       echo "No packages to remove"
@@ -373,6 +377,18 @@ function pin-packages {
     done
     IFS=$' '
     chroot-apt-update
+}
+
+function upgrade-base-packages {
+    show-header "Upgrade the base system (security and bug-fix updates)"
+
+    # The base image is a point release: without this step the ISO shipped
+    # hundreds of pending updates, most of them security updates. Runs after
+    # the PPAs and pins are in place, before the Mainuan packages.
+    chroot-apt-update
+    chroot-apt-get full-upgrade -y --allow-downgrades \
+      -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
+    echo "  - Pending updates after upgrade: $(chroot chroot apt-get -s full-upgrade | grep -c '^Inst ' || true)"
 }
 
 function install-deb-packages {
@@ -1122,7 +1138,10 @@ function write-manifests {
       echo "base_iso_sha256=${base_iso_sha256}"
       echo "builder_commit=$(git -C "$(dirname "${script}")" rev-parse HEAD 2>/dev/null || echo unknown)"
       echo "build_date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      echo "kernel=$(chroot chroot dpkg-query -W -f='${Version}' "$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)")"
+      # The kernel that boots the ISO is the one /boot/vmlinuz points to.
+      local boot_kernel
+      boot_kernel="$(readlink chroot/boot/vmlinuz)"; boot_kernel="${boot_kernel#vmlinuz-}"
+      echo "kernel=${boot_kernel} ($(chroot chroot dpkg-query -W -f='${Version}' "linux-image-${boot_kernel}"))"
       echo "plasma=$(chroot chroot dpkg-query -W -f='${Version}' plasma-workspace)"
       echo "qt=$(chroot chroot dpkg-query -W -f='${Version}' libqt6core6t64)"
       echo "calamares=$(chroot chroot dpkg-query -W -f='${Version}' calamares)"

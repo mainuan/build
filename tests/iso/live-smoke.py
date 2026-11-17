@@ -23,6 +23,8 @@ import sys
 import tempfile
 import time
 
+OSC = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
 OVMF_SECUREBOOT = [
     ("/usr/share/OVMF/OVMF_CODE_4M.secboot.fd", "/usr/share/OVMF/OVMF_VARS_4M.ms.fd"),
 ]
@@ -57,6 +59,7 @@ CHECKS = {
     "dns": "getent hosts archive.ubuntu.com || echo 'no DNS answer'",
     "apt_policy": "apt-cache policy 2>/dev/null | head -20",
     "journal_errors": "journalctl -b -p err --no-pager -o short-monotonic | tail -80",
+    "journal_error_count": "journalctl -b -p err --no-pager -q | wc -l",
     "kernel_warnings": "dmesg --level=err,warn 2>/dev/null | tail -40 || "
                        "sudo -n dmesg --level=err,warn | tail -40",
     "memory": "free -m",
@@ -108,6 +111,7 @@ class Serial:
                 time.sleep(0.1)
         self.sock.settimeout(0.5)
         self.buffer = ""
+        self.raw = ""
         self.log = open(log_path, "w", encoding="utf-8", errors="replace")  # noqa: SIM115 - closed at exit
 
     def read(self):
@@ -118,9 +122,12 @@ class Serial:
         if not data:
             raise EOFError("serial closed (QEMU exited)")
         text = data.decode("utf-8", "replace")
+        # systemd >= 258 marks shell contexts with OSC 3008 sequences.
+        text = OSC.sub("", text)
         self.log.write(text)
         self.log.flush()
         self.buffer += text
+        self.raw += text
         return text
 
     def wait_for(self, pattern, timeout):
@@ -134,15 +141,49 @@ class Serial:
             self.read()
         raise TimeoutError(f"timeout waiting for {pattern!r}")
 
+    def log_text_since_edit(self):
+        start = self.raw.rfind("setparams")
+        return self.raw[max(0, start - 64):]
+
     def send(self, text):
         self.sock.sendall(text.encode())
+
+
+def screen_rows(text):
+    """Very small VT100 emulation: rows written by cursor addressing."""
+    rows, row, col = {}, 1, 1
+    for match in re.finditer(r"\x1b\[(\d*);?(\d*)H|\x1b\[[0-9;?]*[A-Za-z]|([^\x1b])", text):
+        token = match.group(0)
+        if token.startswith("\x1b") and token.endswith("H"):
+            row, col = int(match.group(1) or 1), int(match.group(2) or 1)
+        elif match.group(3) is not None:
+            char = match.group(3)
+            if char == "\n":
+                row, col = row + 1, 1
+            elif char == "\r":
+                col = 1
+            else:
+                rows.setdefault(row, {})[col] = char
+                col += 1
+    return {r: "".join(cells.get(c, " ") for c in range(1, max(cells) + 1)) for r, cells in rows.items()}
+
+
+def lines_to_kernel(editor_screen):
+    """Number of Ctrl-N presses from the first editor line to the 'linux' line.
+    GRUB builds differ: some show a blank line after setparams."""
+    rows = screen_rows(editor_screen)
+    first = min((r for r, text in rows.items() if "setparams" in text), default=None)
+    kernel = min((r for r, text in rows.items() if "/casper/vmlinuz" in text), default=None)
+    if first is None or kernel is None or kernel <= first:
+        raise TimeoutError("GRUB editor: kernel line not found")
+    return kernel - first
 
 
 def run_check(serial, name, command, timeout=360):
     begin, end = f"@@BEGIN-{name}@@", f"@@END-{name}@@"
     # The markers are built at run time so the echoed command never matches.
-    serial.send(f"B=@@BEGIN-; E=@@END-; echo \"$B{name}@@\"; {{ {command} ; }} 2>&1; "
-                f"echo \"$E{name}@@\"\n")
+    serial.send(f"B=@@BEGIN-; E=@@END-; echo \"${{B}}{name}@@\"; {{ {command} ; }} 2>&1; "
+                f"echo \"${{E}}{name}@@\"\n")
     serial.wait_for(re.escape(begin) + r"\r?\n", timeout)
     match = serial.wait_for(r"(?s)(.*?)" + re.escape(end), timeout)
     return match.group(1).replace("\r", "").strip()
@@ -208,11 +249,16 @@ def main():
         serial.wait_for(r"Mainuan", 120)
         report["steps"]["grub_menu_seconds"] = round(time.monotonic() - started, 1)
         time.sleep(1)
+        serial.buffer = ""
         serial.send("e")
+        serial.wait_for(r"/casper/vmlinuz", 30)
         time.sleep(1)
-        # The editor opens on "setparams '<title>'"; the kernel line is next.
-        serial.send("\x0e")  # Ctrl-N: next line (linux /casper/vmlinuz ...)
-        time.sleep(0.3)
+        serial.read()
+        editor = serial.log_text_since_edit()
+        # The editor opens on "setparams '<title>'"; find the kernel line.
+        for _ in range(lines_to_kernel(editor)):
+            serial.send("\x0e")  # Ctrl-N: next line
+            time.sleep(0.2)
         serial.send("\x05")  # Ctrl-E: end of line
         serial.send(" console=tty0 console=ttyS0,115200")
         time.sleep(0.5)
@@ -241,11 +287,19 @@ def main():
         report["steps"]["total_seconds"] = round(time.monotonic() - started, 1)
 
         serial.send("sudo -n poweroff\n")
-        try:
-            qemu.wait(timeout=180)
-            report["steps"]["poweroff"] = "ok"
-        except subprocess.TimeoutExpired:
-            report["steps"]["poweroff"] = "timeout"
+        # casper asks to remove the medium and press Enter before powering off.
+        deadline = time.monotonic() + 180
+        report["steps"]["poweroff"] = "timeout"
+        while time.monotonic() < deadline:
+            try:
+                qemu.wait(timeout=5)
+                report["steps"]["poweroff"] = "ok"
+                break
+            except subprocess.TimeoutExpired:
+                try:
+                    serial.send("\r")
+                except OSError:
+                    pass
     except (TimeoutError, EOFError) as error:
         report["error"] = str(error)
         if qmp is not None and qemu.poll() is None:
