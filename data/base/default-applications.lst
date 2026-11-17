@@ -1,0 +1,4 @@
+# Aplicativo padrão por tipo de arquivo: <tipo MIME> = <arquivo .desktop>
+# Gravado em /etc/xdg/mimeapps.list; a escolha do usuário continua valendo.
+application/vnd.flatpak.ref = mainuan-flatpak-install-gui.desktop
+application/vnd.appimage = mainuan-install-appimage.desktop

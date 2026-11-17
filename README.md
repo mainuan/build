@@ -1,240 +1,151 @@
-# Mita'i OS Builder
+<div align="center">
 
-Script para construir imagens ISO customizadas do Mita'i OS, baseadas em derivados do Debian/Ubuntu (como o Kubuntu).
+<img src="https://raw.githubusercontent.com/mainuan/.github/main/profile/assets/mainuan-logo.svg" width="96" alt="Logotipo do Mainuan">
 
-## Requisitos
+# Mainuan ISO Builder
 
-- Sistema operacional baseado em Debian/Ubuntu (host)
-- Execução como **root via `sudo -EH`**
-- As seguintes dependências são instaladas automaticamente se estiverem faltando:
+Construtor da imagem ISO oficial do **Mainuan Linux**, baseada no Kubuntu 26.04 LTS e no KDE Plasma 6.6.
 
-| Ferramenta | Pacote |
+[![ISO](https://github.com/mainuan/build/actions/workflows/build-iso.yml/badge.svg)](https://github.com/mainuan/build/actions/workflows/build-iso.yml)
+[![Release](https://img.shields.io/github/v/release/mainuan/build?include_prereleases&label=release)](https://github.com/mainuan/build/releases)
+![Base](https://img.shields.io/badge/base-Kubuntu%2026.04%20LTS-0079c1)
+![Plasma](https://img.shields.io/badge/KDE%20Plasma-6.6-1d99f3)
+![Arquitetura](https://img.shields.io/badge/arquitetura-amd64%20(x86--64%20b%C3%A1sico)-555)
+
+</div>
+
+---
+
+## O que é
+
+O `build.sh` parte da ISO oficial do Kubuntu e aplica a variante Mainuan:
+
+1. **Extrai** o sistema de arquivos (`casper/filesystem.squashfs`).
+2. **Personaliza** num chroot: remove pacotes, instala os aplicativos Mainuan, aplica temas, ícones, wallpapers e configurações padrão, configura o Calamares e a identidade do sistema.
+3. **Gera** uma ISO híbrida, que inicia por BIOS e UEFI, em pendrive ou DVD.
+
+Cada fonte externa é **fixada e verificada**:
+
+- a ISO base é conferida pelo `SHA256SUMS` assinado pelo Ubuntu;
+- cada `.deb` é conferido pelo SHA-256;
+- cada recurso git é baixado num commit exato.
+
+O mesmo commit do construtor gera sempre a mesma composição de componentes.
+
+```
+Kubuntu 26.04.1 (GPG + SHA-256) ──┐
+.deb dos aplicativos (SHA-256) ───┼──▶ build.sh ──▶ mainuan-2027.1-rc1-amd64.iso
+temas/ícones/wallpapers (commit) ─┘                 ├─ .sha256, .packages, .build-info
+                                                    └─ testes: estrutura, boot UEFI e BIOS
+```
+
+## Download
+
+As ISOs testadas são publicadas em **[Releases](https://github.com/mainuan/build/releases)**. Cada arquivo de release no GitHub tem limite de 2 GiB, então a ISO vem em partes:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS      # confere as partes
+cat mainuan-*-amd64.iso.part* > mainuan.iso        # remonta
+sha256sum --check --ignore-missing SHA256SUMS      # confere a ISO inteira
+```
+
+Também é possível baixar pelo site oficial: <https://mainuan.com.br>.
+
+## Construir localmente
+
+Requisitos: host Ubuntu/Kubuntu (26.04 recomendado), cerca de 50 GB livres, acesso root e internet. As ferramentas que faltarem (`xorriso`, `squashfs-tools`, `grub-*`, `mtools`, `gnupg`…) são instaladas pelo próprio script.
+
+```bash
+git clone https://github.com/mainuan/build.git
+cd build
+sudo ./build.sh base
+```
+
+> No Ubuntu 26.04, o `sudo` é o `sudo-rs` e ignora `-E`. Use `sudo ./build.sh`, sem `-EH`.
+
+Resultado em `base/iso/`:
+
+| Arquivo | Conteúdo |
 |---|---|
-| `mmd` | dosfstools |
-| `mcopy` | mtools |
-| `grub-mkstandalone` | grub-common |
-| `osirrox` | xorriso |
-| `unsquashfs` | squashfs-tools |
-| `wget` | wget |
-| `rsync` | rsync |
-| `git` | git |
-| `bsdtar` | libarchive-tools |
-| — | grub-pc |
-| — | grub-efi-amd64-bin |
+| `mainuan-2027.1-rc1-amd64.iso` | imagem final |
+| `….iso.sha256` | SHA-256 da imagem |
+| `….packages` | todos os pacotes instalados (nome, versão, arquitetura) |
+| `….build-info` | base, commit do construtor, versões de kernel, Plasma, Qt e Calamares |
+| `components.sha256` | hash de cada componente externo usado |
 
-## Estrutura de diretórios esperada
+Com `--iso=/caminho/kubuntu-26.04.1-desktop-amd64.iso`, o download é evitado. O arquivo ainda precisa ter o SHA-256 fixado.
 
-```
-.
-├── build.sh
-└── data/
-    └── <variante>/
-        ├── distro.ini                   # Configurações da distro (obrigatório)
-        ├── BuildSteps                   # (opcional) lista de etapas customizadas
-        ├── remove-base-packages.lst
-        ├── launchpad-repositories.lst
-        ├── git-dot-files.lst
-        ├── pkexec-sudo-white-list.lst
-        ├── pin-packages.yaml
-        ├── install-deb-packages.lst
-        ├── install-apt-packages.lst
-        ├── install-flapak-packages.lst
-        ├── install-appimage-packages.lst
-        ├── install-snap-packages.lst
-        ├── hide-apps-from-menu.lst
-        ├── reorganize-apps.yaml
-        ├── plasma-kcms.yaml
-        ├── remove-packages-content.lst
-        ├── remove-system-files.lst
-        ├── symlinks.lst
-        ├── executables.lst
-        └── grub-entries.yaml
-```
+### Etapas
 
-Consulte os arquivos em `data/minimal/` como referência para entender a estrutura e o conteúdo esperado de cada arquivo de configuração.
-
-## Uso
-
-O script **deve** ser executado com `sudo -EH`:
+O build executa as funções `function …` do `build.sh` na ordem em que aparecem. Cada etapa roda com `errexit`: o primeiro erro interrompe tudo e informa a etapa, a linha e o comando.
 
 ```bash
-sudo -EH bash build.sh [opções] [variante] [etapa]
+sudo ./build.sh base build-squashfs              # repete uma etapa (depois de um build completo)
+sudo ./build.sh base --enter-chroot              # shell dentro da imagem
+sudo ./build.sh base --chroot apt list --installed
+sudo ./build.sh --skip=install-flatpak-packages base
 ```
 
-### Uso básico
-
-Construir uma imagem usando a ISO padrão do Ubuntu:
-
-```bash
-sudo -EH bash build.sh [variante]
-```
-
-Construir usando uma URL de ISO customizada:
-
-```bash
-sudo -EH bash build.sh --iso="[url ou caminho]" [variante]
-```
-
-Se nenhuma variante for informada, o script utiliza a variante `minimal` como padrão.
-
-### Exemplos
-
-```bash
-# Build completo com a variante padrão
-sudo -EH bash build.sh minimal
-
-# Build usando ISO local
-sudo -EH bash build.sh --iso="/home/user/kubuntu-24.04.iso" minimal
-
-# Build usando ISO remota customizada
-sudo -EH bash build.sh --iso="https://example.com/minha-iso.iso" minhavariante
-```
-
-## Variantes disponíveis
-
-As variantes são os diretórios dentro de `data/`. Para listar:
-
-```bash
-ls data/
-```
-
-Cada variante precisa ter, no mínimo, um arquivo `distro.ini` com as configurações da distribuição.
-
-### Arquivo `distro.ini`
-
-Este arquivo define as variáveis da distribuição. Exemplo de variáveis usadas pelo script:
-
-```ini
-name=MinhaDisto
-flavour=kubuntu
-base=24.04
-flavour_release=noble
-system_version=1.0
-system_dir=/mitai
-type=Desktop
-code_name=Meu Codinome
-keyboard=br
-locale=pt_BR.UTF-8
-timezone=America/Sao_Paulo
-user=live
-host=mitai
-logo=mitai
-id=mitai
-website=https://exemplo.com
-contact=https://exemplo.com/contato
-donate=https://exemplo.com/doe
-release=https://exemplo.com/notas
-issues=https://exemplo.com/bugs
-help=https://exemplo.com/ajuda
-privacy=https://exemplo.com/privacidade
-grub_name=Minha Distro
-splash=quiet splash
-```
-
-## Etapas do build
-
-O build completo executa as seguintes etapas em sequência:
-
-| Etapa | Descrição |
+| Etapa | O que faz |
 |---|---|
-| `check-build-dependencies` | Verifica e instala dependências |
-| `download-image` | Baixa a ISO base |
-| `extract-image` | Extrai o sistema de arquivos da ISO |
-| `mount-virtual-fs` | Monta os sistemas de arquivos virtuais (dev, proc, etc.) |
-| `prepare-base-image` | Prepara a imagem base (locale, teclado, kernel) |
-| `remove-base-packages` | Remove pacotes indesejados |
-| `setup-anti-breakage` | (desativado) Instala proteção contra remoção acidental |
-| `launchpad-repositories` | Adiciona PPAs do Launchpad |
-| `git-dot-files` | Clona repositórios git ou tarballs para dentro do rootfs |
-| `pkexec-sudo-white-list` | Configura whitelist do PolicyKit |
-| `pin-packages` | Fixa pacotes em repositórios específicos |
-| `install-deb-packages` | Instala pacotes `.deb` externos |
-| `install-apt-packages` | Instala pacotes via APT |
-| `install-flatpak-packages` | Instala pacotes Flatpak |
-| `install-appimage-packages` | Instala pacotes AppImage |
-| `install-snap-packages` | Instala pacotes Snap |
-| `setup-calamares` | Configura o instalador Calamares |
-| `remove-packages-contents` | Remove conteúdo de pacotes específicos |
-| `reorganize-menu` | Oculta e reorganiza aplicativos no menu |
-| `apply-mitai-directory` | Aplica a estrutura de diretórios do Mita'i OS |
-| `apply-mitai-root-ux` | Aplica ajustes de UX na raiz do sistema |
-| `remove-system-files` | Remove arquivos do sistema conforme lista |
-| `install-electron` | Instala o Electron.js |
-| `create-symlinks` | Cria links simbólicos |
-| `branding` | Gera arquivos de identidade da distro |
-| `make-executable` | Define permissões de execução em arquivos |
-| `cleanup-system-image` | Limpa cache APT e logs |
-| `umount-virtual-fs` | Desmonta os sistemas de arquivos virtuais |
-| `build-squashfs` | Comprime o sistema em squashfs |
-| `build-grub` | Gera o bootloader GRUB (BIOS e EFI) |
-| `build-iso` | Gera o arquivo ISO final |
+| `check-build-dependencies` | instala no host as ferramentas que faltam |
+| `download-image` | baixa a base e confere assinatura e SHA-256 |
+| `extract-image` | extrai o squashfs para `chroot/` |
+| `prepare-base-image` | teclado, locale `pt_BR`, kernel e casper; trava o x86-64 básico (sem `amd64v3`) |
+| `remove-base-packages` | `data/base/remove-base-packages.lst` |
+| `launchpad-repositories` / `pin-packages` | PPAs e *pinning* |
+| `git-dot-files` | recursos fixados em `git-dot-files.lst` |
+| `install-deb-packages` | `.deb` com SHA-256 em `install-deb-packages.lst` |
+| `install-apt-packages` / `install-flatpak-packages` | pacotes extras |
+| `setup-calamares` | identidade, páginas e partições do instalador |
+| `remove-packages-contents`, `reorganize-menu`, `remove-system-files`, `create-symlinks` | ajustes de menu e de arquivos |
+| `branding` | `os-release`, `lsb-release`, `issue`, "Sobre este sistema" |
+| `cleanup-system-image` | confere a ausência de variantes `amd64v3`, limpa APT e logs |
+| `write-manifests` | lista de pacotes e informações de build |
+| `build-squashfs`, `build-grub`, `build-iso` | squashfs xz, GRUB BIOS/UEFI, ISO e SHA-256 |
 
-### Executar uma etapa individualmente
+### Configuração da variante
 
-Após realizar ao menos um build completo, é possível executar etapas isoladas:
+Tudo o que define o Mainuan fica em [`data/base/`](data/base):
 
-```bash
-sudo -EH bash build.sh [variante] [etapa]
-```
+| Arquivo | Uso |
+|---|---|
+| `distro.ini` | nome, versão (`2027.1`, estágio `rc1`), usuário Live, locale, links e ISO base fixada (`base_iso_url`, `base_iso_sha256`, `base_iso_signing_key`) |
+| `install-deb-packages.lst` | `<URL> <SHA-256>` por linha |
+| `git-dot-files.lst` | `<repo>.git <commit> > <destino>` ou `<URL> <SHA-256> > <destino>` |
+| `install-apt-packages.lst`, `remove-base-packages.lst` | pacotes adicionados e removidos |
+| `grub-entries.yaml` | entradas do menu de boot |
+| `hide-apps-from-menu.lst`, `reorganize-apps.yaml`, `plasma-kcms.yaml` | menu de aplicativos |
 
-Exemplo — recomprimir somente o squashfs:
+Para trocar a versão de um aplicativo na ISO, publique a release no repositório dele e atualize a linha correspondente em `install-deb-packages.lst`, com a URL e o SHA-256 do asset. O GitHub mostra o hash em cada asset, e `gh release view` também o informa.
 
-```bash
-sudo -EH bash build.sh minimal build-squashfs
-```
+## Testes
 
-## Opções avançadas
+| Teste | Comando | O que verifica |
+|---|---|---|
+| Estrutura | `tests/iso/check-iso.sh <iso>` | registros de boot BIOS e UEFI, MBR híbrido, kernel e initrd, `md5sum.txt`, `os-release`, pacotes essenciais e Mainuan, Calamares, ausência de restos de build e de variantes `amd64v3` |
+| Boot Live | `tests/iso/live-smoke.py <iso> --firmware uefi\|bios [--cpu-model Nehalem]` | inicia pelo GRUB da ISO em QEMU/KVM, entra pela serial como o usuário Live e coleta estado do systemd, unidades com falha, sessão Plasma/Wayland, rede, DNS, erros do journal e uma captura de tela; desliga |
+| VM local | `tests/vm/mainuan-vm.sh create <iso>` | cria a VM `mainuan-test` no libvirt (UEFI, 4 vCPU, 6 GiB, 60 GB) para instalar pelo Calamares no Virt-Manager |
 
-### Entrar no ambiente chroot interativamente
+## Integração contínua
 
-```bash
-sudo -EH bash build.sh [variante] --enter-chroot
-```
+O workflow [`ISO`](.github/workflows/build-iso.yml):
 
-### Executar um comando dentro do chroot
+- **lint** em todo push e PR: `bash -n`, ShellCheck e a exigência de que cada fonte esteja fixada;
+- **build** completo, executado manualmente, em tags `v*` e em PRs que alteram o construtor: estrutura e boot Live UEFI e BIOS, ISO em partes de 1900 MiB e `SHA256SUMS`, com artefato por 14 dias;
+- **release** só por tag `v*`, sem nunca substituir uma release existente. RCs são publicadas como *pre-release*.
 
-```bash
-sudo -EH bash build.sh [variante] --chroot [comando] [arg1] [arg2] ...
-```
+A tag é a aprovação humana: ela só é criada depois dos testes de instalação na VM.
 
-Exemplo:
+## Problemas conhecidos
 
-```bash
-sudo -EH bash build.sh minimal --chroot apt list --installed
-```
+- **Secure Boot**: o GRUB EFI é gerado pelo construtor e não tem assinatura. Desative o Secure Boot para iniciar a ISO.
+- `setup-anti-breakage` está desativado.
 
-### Pular etapas do build
+## Créditos
 
-```bash
-sudo -EH bash build.sh [variante] --skip="[etapa1],[etapa2],[etapa3]"
-```
+Construtor criado por **Natanael Barbosa Santos** ([@natanael-art](https://github.com/natanael-art)) como *Mita'i OS Builder* e adaptado ao Mainuan por Daigo ([@daigoasuka](https://github.com/daigoasuka)) e Rafael Ruscher ([@ruscher](https://github.com/ruscher)). Base: [Kubuntu](https://kubuntu.org) e [Ubuntu](https://ubuntu.com).
 
-Exemplo — pular instalação de Flatpak e Snap:
+## Licença
 
-```bash
-sudo -EH bash build.sh minimal --skip="install-flatpak-packages,install-snap-packages"
-```
-
-### Exibir a ajuda
-
-```bash
-sudo -EH bash build.sh --help
-```
-
-## Saída
-
-Ao final do build bem-sucedido, a ISO gerada estará em:
-
-```
-[variante]/iso/[name]-amd64.iso
-[variante]/iso/[name]-amd64.md5
-```
-
-Onde `[name]` corresponde à variável `name` definida no `distro.ini`.
-
-## Notas
-
-- O script **precisa** ser executado no mesmo diretório onde estão `build.sh` e `data/`. Ele faz `cd` automaticamente para seu próprio diretório ao iniciar.
-- O diretório de trabalho do build fica em `[variante]/chroot/` e pode ocupar vários gigabytes.
-- Em caso de interrupção, o script tenta desmontar os sistemas de arquivos virtuais automaticamente via trap `EXIT`.
-- Variantes com um arquivo `BuildSteps` customizado executam apenas as etapas listadas nele, em ordem.
+Este repositório ainda não declara uma licença. Até que os autores definam uma, os direitos ficam reservados a eles.

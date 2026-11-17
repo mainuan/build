@@ -29,6 +29,10 @@ function check-build-dependencies {
     [rsync]="rsync"
     [git]="git"
     [bsdtar]="libarchive-tools"
+    [mksquashfs]="squashfs-tools"
+    [gpg]="gnupg"
+    [gpgv]="gpgv"
+    [sha256sum]="coreutils"
   )
 
 
@@ -56,20 +60,39 @@ function check-build-dependencies {
 }
 
 function download-image {
-    show-header "Download ISO image"
+    show-header "Download and verify the base ISO image"
 
-    mkdir -p base
-    if [ -f "base/${flavour}.iso" ]; then
-      echo "The file is already fully retrieved; nothing to do."
-      return;
-    fi
+    mkdir -p base iso
+    : > iso/components.sha256
+    local iso="base/${flavour}.iso"
 
     if [ -f "${url}" ]; then
-      cp "${url}" "base/${flavour}.iso"
-      return;
+      cp "${url}" "${iso}"
+    elif [ ! -f "${iso}" ] || ! echo "${base_iso_sha256}  ${iso}" | sha256sum --check --status; then
+      local release_dir="${base_iso_url%/*}"
+
+      echo "  - Verifying the signature of ${release_dir}/SHA256SUMS"
+      rm -f base/SHA256SUMS base/SHA256SUMS.gpg
+      wget --quiet -O base/SHA256SUMS     "${release_dir}/SHA256SUMS"
+      wget --quiet -O base/SHA256SUMS.gpg "${release_dir}/SHA256SUMS.gpg"
+
+      local gnupghome
+      gnupghome="$(mktemp -d)"
+      gpg --homedir "${gnupghome}" --batch --quiet --keyserver hkps://keyserver.ubuntu.com \
+          --recv-keys "${base_iso_signing_key}"
+      gpg --homedir "${gnupghome}" --batch --export "${base_iso_signing_key}" > "${gnupghome}/ubuntu-cdimage.gpg"
+      gpgv --keyring "${gnupghome}/ubuntu-cdimage.gpg" base/SHA256SUMS.gpg base/SHA256SUMS
+      rm -rf "${gnupghome}"
+
+      # The pinned checksum must be the one Ubuntu signed for this file name.
+      grep -qx "${base_iso_sha256} \*${base_iso_url##*/}" base/SHA256SUMS
+
+      echo "  - Downloading ${base_iso_url}"
+      wget --quiet --show-progress --progress=dot:giga -c "${base_iso_url}" -O "${iso}"
     fi
-    
-    wget --quiet --show-progress -c "${url}" -O "base/${flavour}.iso"
+
+    echo "  - Checking SHA-256 of ${iso}"
+    echo "${base_iso_sha256}  ${iso}" | sha256sum --check
 }
 
 function extract-image {
@@ -87,7 +110,7 @@ function extract-image {
       fi
     )
 
-    sudo unsquashfs -d chroot -f base/filesystem.squashfs
+    unsquashfs -d chroot -f base/filesystem.squashfs
 
     (
       cd "chroot"
@@ -130,10 +153,25 @@ function prepare-base-image {
     chroot "chroot" sh -c "echo 'locales locales/default_environment_locale select pt_BR.UTF-8'         | debconf-set-selections"
     chroot "chroot" sh -c "echo 'debconf debconf/frontend select Noninteractive'                        | debconf-set-selections"
 
+    # x86-64 baseline: never install amd64v3 package variants, even when the
+    # build host's CPU supports them (the ISO must boot on older machines).
+    # Removed again in cleanup-system-image, so installed systems keep APT's
+    # per-machine default.
+    # Downloads are retried (Launchpad PPAs answer 503 now and then), and a
+    # repository index that cannot be fetched is an error, not a warning that
+    # would leave the image built from stale indexes.
+    cat > "chroot/etc/apt/apt.conf.d/99mainuan-build-baseline" <<'APT'
+#clear APT::Architecture-Variants;
+APT::Architecture-Variants "";
+Acquire::Retries "5";
+Acquire::Retries::Delay::Maximum "60";
+APT::Update::Error-Mode "any";
+APT
+
     # Regenerate vmlinuz and force casper
     local kernel=$(chroot chroot dpkg-query -W -f='${Package}\n' 'linux-image-*-generic' | head -n1)
-    chroot "chroot" apt update
-    chroot "chroot" apt install casper ${kernel} --reinstall --allow-downgrades -y
+    chroot-apt-update
+    chroot-apt-get install --reinstall --allow-downgrades -y casper ${kernel}
     if [ -f "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom" ]; then
       rm "chroot/usr/share/initramfs-tools/scripts/casper-bottom/41apt_build_cache_cdrom";
     fi
@@ -147,6 +185,10 @@ function remove-base-packages {
     mkdir -p chroot/var/lib/snapd chroot/var/snap chroot/usr/lib/snapd
     find chroot/etc/systemd -name "*snap*" -delete
     find chroot/etc/systemd -type d -name "*snap*" -exec rm -r {} +
+    # udev rules written by snapd for each installed snap (not owned by any
+    # package); they call /usr/lib/snapd/snap-device-helper, removed above, and
+    # filled the journal with errors on every device event.
+    rm -f chroot/etc/udev/rules.d/*snap*.rules
 
     if [ "$(sed 's|#.*||g' "${variant_data_dir}/remove-base-packages.lst" | sed '/^$/d' | xargs)" = "" ]; then
       echo "No packages to remove"
@@ -196,7 +238,7 @@ function launchpad-repositories {
         echo
         echo "PPA support not installed, installing..."
         echo
-        chroot "chroot" apt install -y software-properties-common
+        chroot-apt-get install -y software-properties-common
         echo
     fi
 
@@ -211,7 +253,7 @@ function launchpad-repositories {
     done
     set +f
 
-    chroot "chroot" sudo apt update
+    chroot-apt-update
 }
 
 function git-dot-files {
@@ -224,47 +266,58 @@ function git-dot-files {
         return 0
     fi
 
-    set -f
-    IFS=$'\n'
-    for repo in $(sed "s|#.*||g" "${variant_data_dir}/git-dot-files.lst" ); do
-        [ -z "${repo}" ] && continue
+    # Line format (every source is pinned):
+    #   <repository>.git <commit-sha1>  > <target>
+    #   <archive-url>    <sha256>       > <target>
+    local line left target source pin workdir
+    while IFS= read -r line; do
+        line="${line%%#*}"
+        [[ "${line}" == *">"* ]] || continue
+        left="${line%%>*}"
+        target="$(echo "${line#*>}" | xargs)"
+        read -r source pin <<< "${left}"
 
-        local workdir=$(mktemp -d -p "${PWD}/chroot/") || return 1;
-        local target=$(echo "${repo}" | sed 's|^.* ||');
-        local repo=$(echo "${repo}" | sed 's| .*$||');
+        workdir="$(mktemp -d -p "${PWD}/chroot/")"
 
-        echo "  - Cloning '${repo}' to '${target}'..."
-        echo
+        echo "  - '${source}' (${pin}) -> '${target}'"
 
-        if [[ "${repo}" == *.git ]]; then
-          git clone "${repo}" "${workdir}";
+        if [[ "${source}" == *.git ]]; then
+          if [[ ! "${pin}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Repository ${source} must be pinned to a full commit hash"
+            return 1
+          fi
+          git -C "${workdir}" init --quiet
+          git -C "${workdir}" fetch --quiet --depth 1 "${source}" "${pin}"
+          git -C "${workdir}" -c advice.detachedHead=false checkout --quiet FETCH_HEAD
+          test "$(git -C "${workdir}" rev-parse HEAD)" = "${pin}"
+          echo "${pin}  ${source}" >> "${PWD}/iso/components.sha256"
+          rm -rf "${workdir}/.git"
         else
-          wget -qO- "${repo}" |  bsdtar -xzf - -C "${workdir}" 
+          if [[ ! "${pin}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Archive ${source} must be pinned to its SHA-256"
+            return 1
+          fi
+          wget --quiet -O "${workdir}.archive" "${source}"
+          echo "${pin}  ${workdir}.archive" | sha256sum --check --quiet
+          echo "${pin}  ${source##*/}" >> "${PWD}/iso/components.sha256"
+          bsdtar -xzf "${workdir}.archive" -C "${workdir}"
+          rm -f "${workdir}.archive"
         fi
 
-        echo
         (
-          cd "${workdir}";
+          cd "${workdir}"
           if [ ! -d "${workdir}/rootfs" ]; then
-            if [ -d "${workdir}/.git" ]; then
-              rm -rf "${workdir}/.git"
-            fi
-            mkdir -p "${workdir}/rootfs";
-            mkdir -p "${workdir}/rootfs/${target}";
-            find . -mindepth 1 -maxdepth 1 ! -name rootfs -exec mv -t "${workdir}/rootfs/${target}" -- {} +;
+            mkdir -p "${workdir}/rootfs/${target}"
+            find . -mindepth 1 -maxdepth 1 ! -name rootfs -exec mv -t "${workdir}/rootfs/${target}" -- {} +
           fi
 
-          cd "${workdir}/rootfs";
-              
+          cd "${workdir}/rootfs"
           find . -type d -exec mkdir -p ../../{} \;
           find . \( -type f -o -type l \) -exec cp -a {} ../../{} \;
         )
 
-
         rm -rf "${workdir}"
-    done
-    IFS=$' '
-    set +f
+    done < "${list}"
     echo "  - Finished..."
 }
 
@@ -323,29 +376,79 @@ function pin-packages {
       ) >> "chroot/etc/apt/preferences.d/mitai"
     done
     IFS=$' '
-    chroot "chroot" sudo apt update
+    chroot-apt-update
+}
+
+function upgrade-base-packages {
+    show-header "Upgrade the base system (security and bug-fix updates)"
+
+    # The base image is a point release: without this step the ISO shipped
+    # hundreds of pending updates, most of them security updates. Runs after
+    # the PPAs and pins are in place, before the Mainuan packages.
+    chroot-apt-update
+    chroot-apt-get full-upgrade -y --allow-downgrades \
+      -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
+    echo "  - Pending updates after upgrade: $(chroot chroot apt-get -s full-upgrade | grep -c '^Inst ' || true)"
+
+    # A kernel update installs a new ABI next to the old one: keep only the
+    # kernel /boot/vmlinuz points to (the one that boots the ISO).
+    local current old_kernels=()
+    current="$(readlink chroot/boot/vmlinuz)"; current="${current#vmlinuz-}"
+    local current_version="${current%-generic}"   # e.g. 7.0.0-43
+    while read -r package; do
+      case "${package}" in
+        *"-${current_version}" | *"-${current_version}-"*) ;;
+        *) old_kernels+=("${package}") ;;
+      esac
+    done < <(chroot chroot dpkg-query -W -f='${Package} ${Status}\n' \
+               'linux-image-[0-9]*' 'linux-modules-[0-9]*' 'linux-modules-extra-[0-9]*' 'linux-headers-[0-9]*' 2>/dev/null \
+             | awk '$NF == "installed" {print $1}')
+    if [ "${#old_kernels[@]}" -gt 0 ]; then
+      echo "  - Removing kernels other than ${current}: ${old_kernels[*]}"
+      chroot-apt-get purge -y "${old_kernels[@]}"
+    fi
 }
 
 function install-deb-packages {
-    show-header "Install Debian packages outside repositories" 
+    show-header "Install Debian packages outside repositories"
 
-    if [ "$(sed 's|#.*||g' "${variant_data_dir}/install-deb-packages.lst" | sed '/^$/d' | xargs)" = "" ]; then
+    local list="${variant_data_dir}/install-deb-packages.lst"
+
+    if ! grep -vqE '^[[:space:]]*(#|$)' "${list}"; then
       echo "No Debian packages to install"
-      return
+      return 0
     fi
-    echo "  - Downloading packages"
-    echo
+
+    rm -rf "chroot/mita-i.debian-packages"
     mkdir -p "chroot/mita-i.debian-packages"
-    wget --quiet --show-progress -P "chroot/mita-i.debian-packages" $(sed "s|#.*||g" "${variant_data_dir}/install-deb-packages.lst"  | sed '/^$/d' | xargs)
+
+    echo "  - Downloading and verifying packages"
+    echo
+    local package_url package_sha256 extra file
+    while read -r package_url package_sha256 extra; do
+      [ -n "${package_url}" ] || continue
+      if [[ ! "${package_sha256}" =~ ^[0-9a-f]{64}$ ]] || [ -n "${extra}" ]; then
+        echo "Each line of ${list##*/} needs: <url> <sha256> (${package_url})"
+        return 1
+      fi
+      file="chroot/mita-i.debian-packages/${package_url##*/}"
+      echo "    - ${package_url##*/}"
+      wget --quiet -O "${file}" "${package_url}"
+      echo "${package_sha256}  ${file}" | sha256sum --check --quiet
+      echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+    done < <(sed 's|#.*||' "${list}")
     echo
 
     echo "  - Installing packages"
     echo
-    chroot chroot /bin/bash -c "apt install -y /mita-i.debian-packages/*.deb"
+    local debs=()
+    for file in chroot/mita-i.debian-packages/*.deb; do
+      debs+=("${file#chroot}")
+    done
+    chroot-apt-get install -y "${debs[@]}"
     echo
 
     echo "  - Remove .deb files"
-    echo
     rm -rf "chroot/mita-i.debian-packages"
     echo
 }
@@ -358,7 +461,8 @@ function install-apt-packages {
       return
     fi
     chroot "chroot" apt purge firefox -y
-    chroot "chroot" apt install --reinstall $(sed "s|#.*||g" "${variant_data_dir}/install-apt-packages.lst" | xargs) -y
+    # shellcheck disable=SC2046
+    chroot-apt-get install --reinstall -y $(sed "s|#.*||g" "${variant_data_dir}/install-apt-packages.lst" | xargs)
 }
 
 function install-flatpak-packages {
@@ -374,7 +478,7 @@ function install-flatpak-packages {
     echo "  - Setup Flathub"
     echo
     echo "Fixing TSL issues with Flathub SSL on chroot..."
-    chroot "chroot" apt install ca-certificates --reinstall --allow-downgrades -y
+    chroot-apt-get install --reinstall --allow-downgrades -y ca-certificates
     echo
     chroot "chroot" flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
     echo
@@ -450,6 +554,47 @@ function setup-calamares {
     # try_install, so an offline installation simply skips it, and users of
     # other languages get spell checking (KDE Sonnet) in their language.
 
+    echo "  - Default time zone (used when GeoIP has no answer): ${timezone}"
+    if [ ! -f "chroot/usr/share/zoneinfo/${timezone}" ]; then
+      echo "Unknown time zone '${timezone}' in distro.ini"
+      return 1
+    fi
+    local locale_conf="chroot/etc/calamares/modules/locale.conf"
+    local tz_region="${timezone%%/*}" tz_zone="${timezone#*/}"
+    if grep -q '^region:' "${locale_conf}"; then
+      sed -i "s|^region:.*|region: \"${tz_region}\"|" "${locale_conf}"
+    else
+      echo "region: \"${tz_region}\"" >> "${locale_conf}"
+    fi
+    if grep -q '^zone:' "${locale_conf}"; then
+      sed -i "s|^zone:.*|zone: \"${tz_zone}\"|" "${locale_conf}"
+    else
+      echo "zone: \"${tz_zone}\"" >> "${locale_conf}"
+    fi
+
+    # Kubuntu installs grub-efi-amd64-signed and shim-signed for UEFI from the
+    # APT repository on its own medium (cdrom.sources + /pool). This image has
+    # no such repository (cdrom.sources is removed in extract-image) and ships
+    # both packages already installed, so the UEFI install failed at
+    # "cp /etc/apt/sources.list.d/cdrom.sources". Check them instead.
+    echo "  - UEFI bootloader packages come from the image itself"
+    for package in grub-efi-amd64-signed shim-signed; do
+      chroot chroot dpkg-query -W -f='${Status}\n' "${package}" | grep -qx 'install ok installed' || {
+        echo "${package} must be installed in the image"; return 1; }
+    done
+    cat > "chroot/etc/calamares/modules/before_bootloader_context.conf" <<'CONF'
+# Mainuan: the signed EFI bootloader packages are part of the image (there
+# is no package repository on the medium); only check that they are there.
+---
+firmwareType:
+    bios:    "-/bin/true"
+    "*":
+        -    command: "dpkg -s grub-efi-amd64-signed | grep -qx 'Status: install ok installed'"
+             timeout: 10
+        -    command: "dpkg -s shim-signed | grep -qx 'Status: install ok installed'"
+             timeout: 10
+CONF
+
     echo "  - Disable Internet check"
     sed -i 's|^        - internet|#        - internet|' "chroot/etc/calamares/modules/welcome.conf"
 
@@ -515,7 +660,10 @@ style:
       s|^Comment|#Comment|;
       s|^#Name=.*|Name=Instalar o Sistema|;
     ' -i chroot/usr/share/applications/*calamares*.desktop
-    sed 's|^Name=.*|Name=Instalar o Sistema (OEM)|' -i chroot/usr/share/applications/*calamares*oem*.desktop
+    local oem
+    for oem in chroot/usr/share/applications/*calamares*oem*.desktop; do
+      [ -f "${oem}" ] && sed 's|^Name=.*|Name=Instalar o Sistema (OEM)|' -i "${oem}"
+    done
 
 
     echo "  - Generating slideshow"
@@ -542,7 +690,7 @@ Presentation
       if [[ "$file" =~ ^(icon|logo|welcome|welcome-oem)\.png$ ]]; then
         continue
       fi
-      ((counter++))
+      counter=$((counter + 1))
       echo "
     Slide {
         Image {
@@ -579,6 +727,10 @@ function remove-packages-contents {
 
     for package in $(sed "s|#.*||g" "${variant_data_dir}/remove-packages-content.lst" | xargs); do
       echo "Removing '${package}' content"
+      if [ ! -f "chroot/var/lib/dpkg/info/${package}.list" ]; then
+        echo "  - ${package} is not installed, skipping"
+        continue
+      fi
       for file in $(cat "chroot/var/lib/dpkg/info/${package}.list"); do
         if [ -f "chroot/${file}" ]; then
           rm "chroot/${file}"
@@ -610,7 +762,7 @@ function remove-packages-contents {
       done
     done 
     chroot chroot/ dpkg --clear-avail
-    chroot chroot/ apt-get update
+    chroot-apt-update
 }
 
 function reorganize-menu {
@@ -621,6 +773,10 @@ function reorganize-menu {
     for file in $(sed "s|#.*||g" "${variant_data_dir}/hide-apps-from-menu.lst" | xargs); do
       if [ -f "chroot/usr/local/share/applications/${file}" ]; then
         rm "chroot/usr/local/share/applications/${file}"
+      fi
+      if [ ! -f "chroot/usr/share/applications/${file}" ]; then
+        echo "    - ${file}: not installed, nothing to hide"
+        continue
       fi
       cp "chroot/usr/share/applications/${file}" "chroot/usr/local/share/applications"
       sed -i 's|\[Desktop Entry]|[Desktop Entry]\nNoDisplay=true|g' "chroot/usr/local/share/applications/${file}"
@@ -699,6 +855,32 @@ function reorganize-menu {
 
 }
 
+
+function default-applications {
+    show-header "Default applications for file types"
+
+    local list="${variant_data_dir}/default-applications.lst"
+    if [ ! -f "${list}" ] || ! grep -vqE '^[[:space:]]*(#|$)' "${list}"; then
+      echo "No default applications to set"
+      return 0
+    fi
+
+    # System-wide defaults (XDG); user choices in ~/.config/mimeapps.list win.
+    local file="chroot/etc/xdg/mimeapps.list" mime desktop
+    touch "${file}"
+    grep -q '^\[Default Applications\]' "${file}" || printf '[Default Applications]\n' >> "${file}"
+    while IFS='=' read -r mime desktop; do
+      mime="$(echo "${mime}" | xargs)"; desktop="$(echo "${desktop}" | xargs)"
+      [ -n "${mime}" ] && [ -n "${desktop}" ] || continue
+      if [ ! -f "chroot/usr/share/applications/${desktop}" ]; then
+        echo "${desktop} is not installed (default for ${mime})"
+        return 1
+      fi
+      sed -i "\|^${mime}=|d" "${file}"
+      sed -i "/^\[Default Applications\]/a ${mime}=${desktop};" "${file}"
+      echo "  - ${mime} -> ${desktop}"
+    done < <(sed 's|#.*||' "${list}")
+}
 
 function apply-mitai-directory {
     show-header "Apply Mita'i OS root structure" 
@@ -859,15 +1041,6 @@ function remove-system-files {
     sleep 5
 }
 
-function install-electron {
-    show-header "Install Electron.js" 
-
-    mkdir -p chroot/usr/lib/electron
-    
-    wget -qO- https://github.com/electron/electron/releases/download/v44.1.0/electron-v44.1.0-linux-x64.zip \
-      | bsdtar -x -f - -C chroot/usr/lib/electron
-}
-
 function create-symlinks {
     show-header "Symbolic links"
 
@@ -974,6 +1147,13 @@ function make-executable {
 function cleanup-system-image {
     show-header "Clear the system image" 
     
+    echo "  - Checking that no amd64v3 package variant was installed"
+    if chroot "chroot" dpkg-query -W -f='${Package} ${Architecture-Variant}\n' | grep -E ' amd64v[2-9]$'; then
+      echo "Package variants above require a newer CPU than x86-64 baseline"
+      return 1
+    fi
+    rm -f "chroot/etc/apt/apt.conf.d/99mainuan-build-baseline"
+
     echo "  - Cleaning up APT"
     chroot "chroot" apt clean
     chroot "chroot" apt -q modernize-sources -y
@@ -995,6 +1175,40 @@ function umount-virtual-fs {
     rm -rf chroot/debian-packages    || true &> /dev/null
     rm -rf chroot/lib.usr-is-merged  || true &> /dev/null
     rm -rf chroot/sbin.usr-is-merged || true &> /dev/null
+}
+
+function write-manifests {
+    show-header "Write package manifest and build information"
+
+    local base_name
+    base_name="$(iso-basename)"
+    mkdir -p iso
+
+    chroot chroot dpkg-query -W -f='${Package}\t${Version}\t${Architecture}\n' \
+      | sort > "iso/${base_name}.packages"
+    cp "iso/${base_name}.packages" image/casper/filesystem.manifest
+
+    {
+      echo "name=${name}"
+      echo "version=${system_version}${release_stage:+-${release_stage}}"
+      echo "code_name=${code_name}"
+      echo "architecture=amd64"
+      echo "base_iso=${base_iso_url}"
+      echo "base_iso_sha256=${base_iso_sha256}"
+      echo "builder_commit=$(git -C "$(dirname "${script}")" rev-parse HEAD 2>/dev/null || echo unknown)"
+      echo "build_date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      # The kernel that boots the ISO is the one /boot/vmlinuz points to.
+      local boot_kernel
+      boot_kernel="$(readlink chroot/boot/vmlinuz)"; boot_kernel="${boot_kernel#vmlinuz-}"
+      echo "kernel=${boot_kernel} ($(chroot chroot dpkg-query -W -f='${Version}' "linux-image-${boot_kernel}"))"
+      echo "plasma=$(chroot chroot dpkg-query -W -f='${Version}' plasma-workspace)"
+      echo "qt=$(chroot chroot dpkg-query -W -f='${Version}' libqt6core6t64)"
+      echo "calamares=$(chroot chroot dpkg-query -W -f='${Version}' calamares)"
+      echo "xorriso=$(xorriso -version 2>/dev/null | head -n1)"
+      echo "squashfs_tools=$(dpkg-query -W -f='${Version}' squashfs-tools 2>/dev/null || echo unknown)"
+    } > "iso/${base_name}.build-info"
+    echo "  - $(wc -l < "iso/${base_name}.packages") packages"
+    cat "iso/${base_name}.build-info"
 }
 
 function build-squashfs {
@@ -1065,6 +1279,12 @@ function build-grub {
         echo "	insmod gfxterm"
         echo "	terminal_output gfxterm"
         echo "fi"
+        # Mirror the menu on the first serial port when there is one
+        # (headless machines, automated boot tests); harmless otherwise.
+        echo "if serial --unit=0 --speed=115200 ; then"
+        echo "    terminal_input --append serial"
+        echo "    terminal_output --append serial"
+        echo "fi"
 
         cat "image/boot/grub/loopback.cfg"
         echo
@@ -1086,22 +1306,31 @@ function build-grub {
         cd image
         touch "${name}"
 
-        grub-mkstandalone                                   \
-          --format=x86_64-efi                               \
-          --output=isolinux/bootx64.efi                     \
-          --locales=""                                      \
-          --fonts="" "boot/grub/grub.cfg=isolinux/grub.cfg"
+        # UEFI with Secure Boot: the signed chain of the verified base image
+        # (shim signed by Microsoft, GRUB signed by Canonical). This GRUB
+        # finds the medium by /.disk/info and reads /boot/grub/grub.cfg;
+        # the kernel copied from the image is Ubuntu's signed kernel.
+        local signed="${PWD}/../efi-signed"
+        rm -rf "${signed}"
+        mkdir -p "${signed}"
+        osirrox -indev "../base/${flavour}.iso" -extract /EFI/boot "${signed}" > /dev/null
+        chmod -R u+w "${signed}"
+        for efi in bootx64.efi grubx64.efi mmx64.efi; do
+          [ -s "${signed}/${efi}" ] || { echo "Missing ${efi} in the base image"; return 1; }
+        done
+        cp isolinux/grub.cfg boot/grub/grub.cfg
 
         (
-            cd isolinux 
+            cd isolinux
+            rm -f efiboot.img
             dd if=/dev/zero of=efiboot.img bs=1M count=10
             mkfs.vfat efiboot.img
             mmd -i efiboot.img efi efi/boot
-            mcopy -i efiboot.img ./bootx64.efi ::efi/boot/
+            mcopy -i efiboot.img "${signed}/bootx64.efi" "${signed}/grubx64.efi" "${signed}/mmx64.efi" ::efi/boot/
         )
         
         grub-mkstandalone --format=i386-pc --output=isolinux/core.img                      \
-          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls"  \
+          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo"  \
           --modules="linux16 linux normal iso9660 biosdisk search" --locales="" --fonts="" \
           "boot/grub/grub.cfg=isolinux/grub.cfg"
           
@@ -1112,13 +1341,20 @@ function build-grub {
 function build-iso {
     show-header "Generate ISO image"
 
+    local iso_name
+    iso_name="$(iso-basename)"
+
     cd image
 
     mkdir -pv ".disk"
-    echo "${name} ${system_version} \"${code_name}\" - Daily amd64 $(date +%y.0.%-m-%-d)" > .disk/info
+    echo "${name} ${system_version}${release_stage:+ ${release_stage^^}} \"${code_name}\" - amd64 ($(date -u +%Y%m%d))" > .disk/info
 
-    bash -c '(find . -type f -print0 | xargs -0 md5sum | grep -v "\./md5sum.txt" > md5sum.txt)'
+    # isolinux/bios.img is the El Torito BIOS image: xorriso writes the boot
+    # info table into it (-boot-info-table), so its checksum would never match
+    # and casper's "check disc for defects" would report the medium as broken.
+    find . -type f ! -name md5sum.txt ! -path ./isolinux/bios.img -print0 | sort -z | xargs -0 md5sum > md5sum.txt
     mkdir -pv ../iso
+    rm -f "../iso/${iso_name}.iso"
 
     xorriso -as mkisofs -iso-level 3 -full-iso9660-filenames        \
       -volid "${name}" -eltorito-boot boot/grub/bios.img            \
@@ -1127,27 +1363,61 @@ function build-iso {
       --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img             \
       -eltorito-alt-boot -e /EFI/BOOT/BOOTX64.efi                   \
       -no-emul-boot -append_partition 2 0xef isolinux/efiboot.img   \
-      -output "../iso/${name}-amd64.iso" -graft-points "."          \
+      -output "../iso/${iso_name}.iso" -graft-points "."            \
         /boot/grub/bios.img=isolinux/bios.img                       \
         /EFI/BOOT/BOOTX64.efi=isolinux/efiboot.img
-         
-    md5sum ../iso/${name}-amd64.iso > ../iso/${name}-amd64.md5
-    
-    ISO=$(readlink -f ../iso/${name}-amd64.iso)
 
     cd ..
-    
-    if [ -f "${ISO}" ]; then
-        echo
-        echo "  ISO image file: "
-        echo "    "$( du -sh "${ISO}")
-        echo
-        
-        return
+
+    if [ ! -s "iso/${iso_name}.iso" ]; then
+        echo "Failed to generate ISO"
+        return 1
     fi
 
-    echo "Failed to generate ISO"
-    exit 1
+    (
+      cd iso
+      sha256sum "${iso_name}.iso" > "${iso_name}.iso.sha256"
+      sha256sum --check "${iso_name}.iso.sha256"
+    )
+
+    echo
+    echo "  ISO image file: "
+    echo "    $(du -sh "iso/${iso_name}.iso")"
+    echo
+}
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+chroot-apt-get() {
+    # Package downloads from Launchpad PPAs fail with 503 for minutes at a
+    # time (the same file answers 200, then 503): retry the whole command.
+    # Files already downloaded stay in APT's cache.
+    local attempt
+    for attempt in 1 2 3 4; do
+      if chroot "chroot" apt-get "$@"; then
+        return 0
+      fi
+      echo "  - apt-get $1 failed (attempt ${attempt}/4), retrying in $((attempt * 60)) s"
+      sleep $((attempt * 60))
+    done
+    chroot "chroot" apt-get "$@"
+}
+#-----------------------------------------------------------------------------------------------------------------------------------------
+chroot-apt-update() {
+    # Index downloads fail as errors (APT::Update::Error-Mode). Launchpad PPAs
+    # sometimes answer 503 for minutes: retry the whole update a few times.
+    local attempt
+    for attempt in 1 2 3 4; do
+      if chroot "chroot" apt-get update; then
+        return 0
+      fi
+      echo "  - apt-get update failed (attempt ${attempt}/4), retrying in $((attempt * 60)) s"
+      sleep $((attempt * 60))
+    done
+    chroot "chroot" apt-get update
+}
+#-----------------------------------------------------------------------------------------------------------------------------------------
+iso-basename() {
+    echo "${id}-${system_version}${release_stage:+-${release_stage}}-amd64"
 }
 #-----------------------------------------------------------------------------------------------------------------------------------------
 show-header() {
@@ -1281,13 +1551,18 @@ $(grep '^function' "${script}" | grep -Ev -- 'EXIT|function-template|show-header
     --bind-mount
 
 
-    "${option}" "$@"
+    (
+      set -Eeo pipefail
+      trap 'echo "ERROR in step ${option}, line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+      "${option}" "$@"
+    )
+    local status=$?
 
     show-header "Finish virtual FS" 
     --bind-umount
 
     echo
-    exit
+    exit "${status}"
   fi
   echo "Unknown option '${1}' availables:"
   echo
@@ -1362,10 +1637,18 @@ readonly variant_data_dir=$(readlink -f "./data/${variant}")
 source "${variant_data_dir}/distro.ini"
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
-if [ "${url}" = "" ]; then
-  iso_repository="https://cdimage.ubuntu.com/${flavour}/releases/${base}/release/"
-  iso_file=$(wget -q -O - "${iso_repository}" | grep -o "kubuntu-${base}.*amd64.iso" | head -n1)
-  url="https://cdimage.ubuntu.com/kubuntu/releases/${base}/release/${iso_file}"
+# The base image is pinned in distro.ini (base_iso_url, base_iso_sha256,
+# base_iso_signing_key). --iso=<file> only avoids the download: the local
+# file must still match the pinned SHA-256.
+for required in base_iso_url base_iso_sha256 base_iso_signing_key; do
+  if [ -z "${!required}" ]; then
+    echo "Error: '${required}' is not set in data/${variant}/distro.ini"
+    exit 1
+  fi
+done
+if [ -n "${url}" ] && [ ! -f "${url}" ]; then
+  echo "Error: --iso must point to a local copy of ${base_iso_url##*/}"
+  exit 1
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 mkdir -p ${variant}
@@ -1377,13 +1660,40 @@ if [ ! "${2}" = "" ]; then
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 if [ -f "${variant_data_dir}/BuildSteps" ]; then
-  cat "${variant_data_dir}/BuildSteps" | while read step;do
-    source "${variant_data_dir}/distro.ini";
-    --run-step "${step}";
-  done
+  while read -r step; do
+    [ -n "${step}" ] || continue
+    source "${variant_data_dir}/distro.ini"
+    ( --run-step "${step}" )
+    status=$?
+    [ "${status}" -eq 0 ] || exit "${status}"
+  done < "${variant_data_dir}/BuildSteps"
+  exit 0
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
-eval "$(grep '^function' ${script} | cut -d' ' -f2 | tr '\n' '\r' | sed 's|\r|;source \"${variant_data_dir}/distro.ini\";|g')"
+# Steps run in declaration order. Each one runs in a subshell with errexit, so
+# the first failing command stops the build with its step, line and command
+# (a failing step used to be ignored and the build went on).
+step_index=0
+while read -r step; do
+  step_index=$((step_index + 1))
+  current_step=$((step_index - 1))   # show-header runs in the step's subshell
+  if ! declare -F "${step}" > /dev/null; then
+    echo "  - Skipping '${step}'"
+    continue
+  fi
+  source "${variant_data_dir}/distro.ini"
+  (
+    set -Eeo pipefail
+    trap 'echo "ERROR in step ${step}, line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+    "${step}"
+  )
+  status=$?
+  if [ "${status}" -ne 0 ]; then
+    echo
+    echo "Build failed in step '${step}' (exit status ${status})."
+    exit "${status}"
+  fi
+done < <(grep '^function' "${script}" | cut -d' ' -f2)
 
 #-----------------------------------------------------------------------------------------------------------------------------------------

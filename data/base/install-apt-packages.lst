@@ -92,3 +92,9 @@ synaptic
 # clamtk
 pyqt6-dev-tools
 ubuntu-drivers-common
+################################################
+#
+#     Módulos KCM usados pelo Painel de Controle
+#
+################################################
+kio-extras

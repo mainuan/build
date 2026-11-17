@@ -1,12 +1,7 @@
-https://github.com/mainuan/dot-files.git                                 > /
-https://github.com/mainuan/wallpapers.git                                > /usr/share/wallpapers
-https://github.com/mainuan/plasma-themes.git                             > /
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-brown.tar.gz   > /usr/share/icons
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-cyan.tar.gz    > /usr/share/icons
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-grey.tar.gz    > /usr/share/icons
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-lima.tar.gz    > /usr/share/icons
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-magenta.tar.gz > /usr/share/icons
-https://github.com/mainuan/icons/raw/refs/heads/main/kora-violet.tar.gz  > /usr/share/icons
-
-
-
+# Recursos copiados para a imagem a partir de git ou de arquivos. Cada fonte
+# é fixada:
+#   <repositório>.git <commit SHA-1 completo> > <destino>
+#   <URL de arquivo>  <SHA-256>               > <destino>
+#
+# Os recursos do Mainuan (dot-files, wallpapers, plasma-themes, icons) agora
+# são pacotes Debian versionados, instalados por install-deb-packages.lst.
