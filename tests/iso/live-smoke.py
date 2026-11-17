@@ -286,7 +286,9 @@ def main():
         report["steps"]["screendump"] = "ok" if "return" in reply else reply.get("error")
         report["steps"]["total_seconds"] = round(time.monotonic() - started, 1)
 
-        serial.send("sudo -n poweroff\n")
+        # The serial shell is a TTY: systemctl would honour the inhibitors of
+        # the graphical session and refuse; this is an unattended shutdown.
+        serial.send("sudo -n systemctl poweroff --check-inhibitors=no\n")
         # casper asks to remove the medium and press Enter before powering off.
         deadline = time.monotonic() + 180
         report["steps"]["poweroff"] = "timeout"
@@ -297,8 +299,9 @@ def main():
                 break
             except subprocess.TimeoutExpired:
                 try:
+                    serial.read()
                     serial.send("\r")
-                except OSError:
+                except (OSError, EOFError):
                     pass
     except (TimeoutError, EOFError) as error:
         report["error"] = str(error)
