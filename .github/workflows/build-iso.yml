@@ -105,14 +105,15 @@ jobs:
         run: |
           nproc; free -g; df -h / /mnt
 
-      - name: Free disk space (unused SDKs of the hosted image)
+      - name: Require enough free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
-                      /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/boost
-          sudo docker image prune --all --force > /dev/null || true
-          df -h / /mnt
+          # base ISO 5 GB + squashfs copy + chroot ~15 GB + new squashfs, ISO and
+          # parts: about 40 GB. The hosted image has ~88 GB free without cleanup.
+          free_gb=$(df --output=avail -BG /mnt | tail -1 | tr -dc 0-9)
+          echo "free: ${free_gb} GB"
+          test "$free_gb" -ge 50
 
-      - name: Copy the builder to the large /mnt disk
+      - name: Copy the builder to the work directory
         run: |
           sudo mkdir -p "$WORK"
           sudo rsync -a --delete ./ "$WORK/"
