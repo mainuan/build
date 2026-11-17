@@ -108,6 +108,15 @@ grep -q 'cdrom' <<< "${context}" && fail "Calamares UEFI step does not need a re
 locale_conf="$(sq etc/calamares/modules/locale.conf)"
 grep -qx 'zone: "Sao_Paulo"' <<< "${locale_conf}" && pass "Calamares default zone Sao_Paulo" || fail "Calamares default zone Sao_Paulo"
 
+# Mainuan identity on the login screen and the boot splash.
+sddm_conf="$(sq etc/sddm.conf.d/30-mainuan.conf)"
+grep -qx 'Current=breeze' <<< "${sddm_conf}" && pass "SDDM theme Breeze (Mainuan)" || fail "SDDM theme Breeze (Mainuan)"
+grep -qx 'background=/usr/share/wallpapers/01ciano.png' <<< "$(sq usr/share/sddm/themes/breeze/theme.conf.user)" \
+  && pass "SDDM Mainuan background" || fail "SDDM Mainuan background"
+plymouth_default="$(unsquashfs -lls "${squash}" etc/alternatives/default.plymouth 2>/dev/null | grep -o '\-> .*')"
+grep -q 'themes/mainuan/mainuan.plymouth' <<< "${plymouth_default}" && pass "Plymouth default theme mainuan" \
+  || fail "Plymouth default theme mainuan (${plymouth_default})"
+
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
 
