@@ -122,7 +122,7 @@ jobs:
         working-directory: /mnt/mainuan-build
         run: |
           set -o pipefail
-          sudo -EH ./build.sh "$VARIANT" 2>&1 | tee build.log
+          sudo ./build.sh "$VARIANT" 2>&1 | tee build.log
           sudo chown -R "$(id -u):$(id -g)" "$VARIANT/iso"
           df -h /mnt
 
