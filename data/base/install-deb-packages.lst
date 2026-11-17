@@ -18,7 +18,9 @@ https://github.com/mainuan/alerta-atualizacao/releases/download/v2.0.5/system-up
 https://github.com/mainuan/painel-de-controle/releases/download/v1.1.2/painel-de-controle_1.1.2_amd64.deb e676c466ad012ce060b2b90c3479e18d614f7b397f339db5ad84a75734841585
 https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.0/mainuan-gestao-drivers_1.0_all.deb d7a1c98743a204f6b5770c7746cb02b3b4d66c09d2d368966118ac39fa47b912
 https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.2.3/mainuan-atualizador-recursos_0.2.3_all.deb 193730fd6521a283c728f33aafd3542bbd772551770a9604beb213974331805a
-https://github.com/mainuan/mainuan-grub-editor/releases/download/v2.1.0/mainuan-grub-editor_2.1.0_all.deb 1a53a1fa20e030b4153080d3ef69ece84f2d81c630c9546acfef292878524068
+# mainuan-grub-editor: fora desta RC. A release v2.1.0 (CI) foi substituída no
+# repositório pela v2.0.2, um .deb gerado fora do CI (Version 1.0.0-18, depende de
+# debhelper-compat); volta quando houver release do pipeline compartilhado.
 https://github.com/mainuan/mainuan-flatpak-install-gui/releases/download/v1.1/mainuan-flatpak-install-gui_1.1_all.deb c5b9bb0f2adf41304ce671616fdcdf0da862bc898181c1b3aab020c30b9f70fa
 https://github.com/mainuan/mainuan-install-AppImage/releases/download/v2.1.0/mainuan-install-appimage_2.1.0_all.deb a4555e8d61893746eff8070ebbaa3f570476ed0b77cad6ef661210b5e1a83617
 https://github.com/mainuan/pkg-manager-gui/releases/download/v1.1.0/pkg-manager-gui_1.1.0_all.deb 1aa6fe80beef275798641e7d1562fda07fb5e3c76e30e823fea66c4f5fd20df0

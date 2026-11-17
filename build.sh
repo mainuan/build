@@ -400,8 +400,8 @@ function upgrade-base-packages {
         *"-${current_version}" | *"-${current_version}-"*) ;;
         *) old_kernels+=("${package}") ;;
       esac
-    done < <(chroot chroot dpkg-query -W -f='${Package} ${Status}\n' \
-               'linux-image-[0-9]*' 'linux-modules-[0-9]*' 'linux-modules-extra-[0-9]*' 'linux-headers-[0-9]*' 2>/dev/null \
+    done < <({ chroot chroot dpkg-query -W -f='${Package} ${Status}\n' \
+               'linux-image-[0-9]*' 'linux-modules-[0-9]*' 'linux-modules-extra-[0-9]*' 'linux-headers-[0-9]*' 2>/dev/null || true; } \
              | awk '$NF == "installed" {print $1}')
     if [ "${#old_kernels[@]}" -gt 0 ]; then
       echo "  - Removing kernels other than ${current}: ${old_kernels[*]}"
