@@ -139,3 +139,6 @@
 /usr/share/wallpapers/Next/contents/images_dark/3840x2160.svg
 /usr/share/wallpapers/Next/contents/images_dark/1050x1680.svg
 /usr/share/wallpapers/Next/contents/images_dark/248x440.svg
+# Backup left by add-apt-repository during the build
+/etc/apt/sources.list.bak
+

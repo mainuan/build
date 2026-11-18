@@ -605,8 +605,8 @@ CONF
     echo "  - Disable Internet check"
     sed -i 's|^        - internet|#        - internet|' "chroot/etc/calamares/modules/welcome.conf"
 
-    echo "  - Fix old donate URL"
-    sed -i "s|^showDonateUrl: .*|showDonateUrl: ${donate}|" "chroot/etc/calamares/modules/welcome.conf"
+    echo "  - Donate button only with a donation link"
+    sed -i "s|^showDonateUrl: .*|showDonateUrl: ${donate:-false}|" "chroot/etc/calamares/modules/welcome.conf"
 
     echo "  - Removing \"Customize\" section"
     sed -i 's|^  - pkgselect|#  - pkgselect|' "chroot/etc/calamares/settings.conf"
@@ -617,9 +617,49 @@ CONF
     echo "  - Disabling \"shellprocess@rmcdrom\" section"
     sed -i 's|^  - shellprocess@rmcdrom|#  - shellprocess@rmcdrom|' "chroot/etc/calamares/settings.conf"
 
+    # GPT partition names shown by the installer and by file managers
+    # (Dolphin "Devices"). fstab, GRUB and the initramfs use UUIDs, so the
+    # names do not take part in booting.
     echo "  - Change partitions name"
-    sed -i 's|^    - name: "kubuntu_boot"|    - name: "System_Boot"|' "chroot/etc/calamares/modules/partition.conf"
-    sed -i 's|^    - name: "kubuntu_2604"|    - name: "System_Root"|' "chroot/etc/calamares/modules/partition.conf"
+    sed -i -E 's|^    - name: "(kubuntu_boot\|System_Boot)"|    - name: "Mainuan_Boot"|' "chroot/etc/calamares/modules/partition.conf"
+    sed -i -E 's|^    - name: "(kubuntu_2604\|System_Root)"|    - name: "Mainuan"|' "chroot/etc/calamares/modules/partition.conf"
+    grep -q '^    - name: "Mainuan"$' "chroot/etc/calamares/modules/partition.conf" || {
+      echo "partition.conf: root partition name not found"; return 1; }
+
+    # Remove the Discover update notifier from the installed system only: the
+    # packages module runs in the target after the bootloader, never in the
+    # live session. Mainuan has its own update alert (system-upgrade).
+    # plasma-discover only recommends it, so Discover itself stays.
+    echo "  - Remove plasma-discover-notifier from the installed system"
+    if ! grep -q 'plasma-discover-notifier' "chroot/etc/calamares/modules/packages.conf"; then
+      cat >> "chroot/etc/calamares/modules/packages.conf" <<'CONF'
+  - try_remove:
+      - plasma-discover-notifier
+CONF
+    fi
+
+    # The umount module gives each umount 10 s (fixed in Calamares 3.3).
+    # On a slow disk the root still has gigabytes of dirty pages there, the
+    # umount times out and the installer reports "Could not unmount the root
+    # of the target system", although the installation is complete. Flushing
+    # first, with its own generous timeout, makes the umount immediate.
+    echo "  - Flush the target before unmounting it"
+    cat > "chroot/etc/calamares/modules/shellprocess_sync.conf" <<'CONF'
+---
+dontChroot: true
+timeout: 900
+script:
+    - "sync -f ${ROOT}"
+    - "sync"
+CONF
+    if ! grep -q 'shellprocess@sync' "chroot/etc/calamares/settings.conf"; then
+      sed -i 's|^instances:$|instances:\n- id:       sync\n  module:   shellprocess\n  config:   shellprocess_sync.conf\n|' \
+        "chroot/etc/calamares/settings.conf"
+      sed -i 's|^  - umount$|  - shellprocess@sync\n  - umount|' "chroot/etc/calamares/settings.conf"
+    fi
+    grep -qx '  - shellprocess@sync' "chroot/etc/calamares/settings.conf" \
+      && grep -q 'config:   shellprocess_sync.conf' "chroot/etc/calamares/settings.conf" || {
+      echo "settings.conf: sync step not added"; return 1; }
 
     echo "  - Change name of branding directory"
     sed -i 's|^branding:.*|branding: vendor|' "chroot/etc/calamares/settings.conf"
@@ -639,7 +679,7 @@ strings:
     bootloaderEntryName: ${name}
     productUrl:          ${website}
     supportUrl:          ${contact}
-    donateUrl:           ${donate}
+$( [ -n "${donate}" ] && echo "    donateUrl:           ${donate}" )
     releaseNotesUrl:     ${release}
     knownIssuesUrl:      ${issues}
 
@@ -660,66 +700,29 @@ style:
 
 " > "chroot/etc/calamares/branding/vendor/branding.desc"
 
+    # "Install System" in every language the live session can use (the
+    # Kubuntu names say "Kubuntu"); translations in data/base/installer-name.lst.
     echo "  - Fix installer name"
-    sed '
-      s|^Name|#Name|;
-      s|^GenericName|#GenericName|;
-      s|^Comment|#Comment|;
-      s|^#Name=.*|Name=Instalar o Sistema|;
-    ' -i chroot/usr/share/applications/*calamares*.desktop
-    local oem
-    for oem in chroot/usr/share/applications/*calamares*oem*.desktop; do
-      [ -f "${oem}" ] && sed 's|^Name=.*|Name=Instalar o Sistema (OEM)|' -i "${oem}"
-    done
-
-
-    echo "  - Generating slideshow"
-    echo "import QtQuick 2.0;
-import calamares.slideshow 1.0;
-
-Presentation
-{
-    id: presentation
-
-    Timer {
-        interval: 15000
-        running: true
-        repeat: true
-        onTriggered: presentation.goToNextSlide()
-    }
-" > "chroot/etc/calamares/branding/vendor/show.qml"
-  (
-    counter=0
-    cd "chroot/etc/calamares/branding/vendor/"
-
-    shopt -s nullglob
-    for file in *.png; do
-      if [[ "$file" =~ ^(icon|logo|welcome|welcome-oem)\.png$ ]]; then
-        continue
+    local launcher names
+    names="$(sed 's|#.*||' "${variant_data_dir}/installer-name.lst" | grep '=')"
+    for launcher in chroot/usr/share/applications/*calamares*.desktop; do
+      sed -i -E '/^(Name|GenericName|Comment)(\[[^]]*\])?=/d' "${launcher}"
+      if [[ "${launcher}" == *oem* ]]; then
+        sed -i "/^\[Desktop Entry\]/a $(echo "${names}" | sed 's|$| (OEM)|' | sed ':a;N;$!ba;s/\n/\\n/g')" "${launcher}"
+      else
+        sed -i "/^\[Desktop Entry\]/a $(echo "${names}" | sed ':a;N;$!ba;s/\n/\\n/g')" "${launcher}"
       fi
-      counter=$((counter + 1))
-      echo "
-    Slide {
-        Image {
-            id: image${counter}
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: - parent.y / 3.6
-            height: parent.masterHeight * 0.95
-            width: parent.masterWidth * 0.95
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            source: \"${file}\"
-        }
-    }
-
-"
+      grep -q '^Name=Install System' "${launcher}" || { echo "${launcher}: name not set"; return 1; }
     done
-    shopt -u nullglob
-    unset counter
-  ) >> "chroot/etc/calamares/branding/vendor/show.qml"
-  echo "
-}" >> "chroot/etc/calamares/branding/vendor/show.qml"
 
+
+    # Slideshow: QML with translated text, shipped by mainuan-desktop-defaults
+    # (etc/calamares/branding/vendor/show.qml and lang/*.qm).
+    echo "  - Slideshow"
+    for file in show.qml lang/calamares-vendor_pt_BR.qm; do
+      [ -s "chroot/etc/calamares/branding/vendor/${file}" ] || {
+        echo "Calamares branding: ${file} missing (mainuan-desktop-defaults)"; return 1; }
+    done
 }
 
 function remove-packages-contents {
@@ -739,8 +742,14 @@ function remove-packages-contents {
         continue
       fi
       for file in $(cat "chroot/var/lib/dpkg/info/${package}.list"); do
-        if [ -f "chroot/${file}" ]; then
+        if [ -f "chroot/${file}" ] || [ -L "chroot/${file}" ]; then
           rm "chroot/${file}"
+        fi
+      done
+      # Directories the package left empty (deepest first).
+      for file in $(sort -r "chroot/var/lib/dpkg/info/${package}.list"); do
+        if [ -d "chroot/${file}" ]; then
+          rmdir --ignore-fail-on-non-empty "chroot/${file}" 2>/dev/null || true
         fi
       done
 
@@ -807,6 +816,10 @@ function reorganize-menu {
         lang=$(echo "$raw_key" | sed -n 's/.*\[\(.*\)\]$/\1/p')
 
         [ ! -f "chroot/usr/share/applications/${file}" ] && continue
+        # Entries hidden above stay hidden.
+        if sed 's|#.*||' "${variant_data_dir}/hide-apps-from-menu.lst" | grep -qx "${file}"; then
+            continue
+        fi
 
         # Copia do source apenas na primeira vez que o arquivo aparece
         if [ "${file}" != "${prev_file}" ]; then
@@ -1054,6 +1067,35 @@ function remove-system-files {
     sleep 5
 }
 
+function exclude-paths {
+    show-header "Exclude paths (wallpapers, themes, color schemes)"
+
+    # Kubuntu/KDE resources the Mainuan does not offer, listed in
+    # exclude-paths.lst. dpkg path-exclude keeps package updates from bringing
+    # them back; deleting /etc/dpkg/dpkg.cfg.d/mainuan-exclude-paths and
+    # reinstalling the owner package restores them.
+    local list="${variant_data_dir}/exclude-paths.lst" config pattern
+    config="chroot/etc/dpkg/dpkg.cfg.d/mainuan-exclude-paths"
+    {
+      echo "# Mainuan: resources not shipped (build/data/base/exclude-paths.lst)."
+      echo "# Remove this file and reinstall the owner package to restore them."
+    } > "${config}"
+    for pattern in $(sed 's|#.*||' "${list}" | xargs); do
+      case "${pattern}" in
+        /usr/share/plasma/desktoptheme/default|/usr/share/plasma/desktoptheme/default/*)
+          echo "Refusing to exclude the default Plasma style (fallback of every theme)"; return 1 ;;
+      esac
+      echo "path-exclude=${pattern}" >> "${config}"
+      echo "path-exclude=${pattern}/*" >> "${config}"
+      # shellcheck disable=SC2086
+      for path in chroot${pattern}; do
+        [ -e "${path}" ] || [ -L "${path}" ] || continue
+        echo "  - ${path#chroot}"
+        rm -rf "${path}"
+      done
+    done
+}
+
 function create-symlinks {
     show-header "Symbolic links"
 
@@ -1079,7 +1121,8 @@ function create-symlinks {
 
 
         origin=$(chroot "chroot" readlink -f "${origin}");
-        target=$(chroot "chroot" readlink -f "${target}");
+        # -m: the target directory may not exist yet (created below).
+        target=$(chroot "chroot" readlink -m "${target}");
         local target_dir=$(chroot "chroot" dirname "${target}");
 
         chroot "chroot" rm -rf "${target}";
@@ -1170,6 +1213,8 @@ function cleanup-system-image {
     echo "  - Cleaning up APT"
     chroot "chroot" apt clean
     chroot "chroot" apt -q modernize-sources -y
+    # modernize-sources keeps the old sources.list as sources.list.bak.
+    rm -f "chroot/etc/apt/sources.list.bak"
 
     echo "  - Cleaning up logs"
     chroot "chroot" find /var/log -type f -name "*.log" -exec truncate -s 0 {} \;
