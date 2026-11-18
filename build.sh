@@ -766,95 +766,101 @@ function remove-packages-contents {
 }
 
 function reorganize-menu {
-    show-header "Clear the system image" 
+    show-header "Clear the system image"
 
     echo "  - Hide apps from menu"
     mkdir -p chroot/usr/local/share/applications
     for file in $(sed "s|#.*||g" "${variant_data_dir}/hide-apps-from-menu.lst" | xargs); do
-      if [ -f "chroot/usr/local/share/applications/${file}" ]; then
-        rm "chroot/usr/local/share/applications/${file}"
-      fi
-      if [ ! -f "chroot/usr/share/applications/${file}" ]; then
-        echo "    - ${file}: not installed, nothing to hide"
-        continue
-      fi
-      cp "chroot/usr/share/applications/${file}" "chroot/usr/local/share/applications"
-      sed -i 's|\[Desktop Entry]|[Desktop Entry]\nNoDisplay=true|g' "chroot/usr/local/share/applications/${file}"
+        if [ -f "chroot/usr/local/share/applications/${file}" ]; then
+            rm "chroot/usr/local/share/applications/${file}"
+        fi
+        if [ ! -f "chroot/usr/share/applications/${file}" ]; then
+            echo "    - ${file}: not installed, nothing to hide"
+            continue
+        fi
+        cp "chroot/usr/share/applications/${file}" "chroot/usr/local/share/applications"
+        sed -i 's|\[Desktop Entry]|[Desktop Entry]\nNoDisplay=true|g' \
+            "chroot/usr/local/share/applications/${file}"
     done
 
     echo "  - Reorganize apps in menu"
     mkdir -p chroot/var/lib/semantic-ux/applications
+
+    prev_file=""
     IFS=$'\n'
     for line in $(sed "s|#.*||g" "${variant_data_dir}/reorganize-apps.yaml"); do
-      IFS=$' '
-      file=$(echo $line     | cut -d':' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-      category=$(echo $line | cut -d':' -f 2 | cut -d'|' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-      name=$(echo $line     | cut -d':' -f 2 | cut -d'|' -f 2 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
+        IFS=$' '
 
-      [ ! -f "chroot/usr/share/applications/${file}" ] && continue;
+        raw_key=$(echo "$line" | cut -d':' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
+        category=$(echo "$line" | cut -d':' -f 2 | cut -d'|' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
+        name=$(echo "$line"    | cut -d':' -f 2 | cut -d'|' -f 2 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
 
-      cp "chroot/usr/share/applications/${file}" "chroot/var/lib/semantic-ux/applications"
-      sed -i "s|^Categories=.*|Categories=${category}|g" "chroot/var/lib/semantic-ux/applications/${file}"
+        # Separa o nome do arquivo da tag de idioma opcional: arquivo.desktop[pt_BR]
+        file=$(echo "$raw_key" | sed 's/\[.*\]$//')
+        lang=$(echo "$raw_key" | sed -n 's/.*\[\(.*\)\]$/\1/p')
 
-      if [ "${name}" = "%GenericName" ]; then
-        awk '
-          /^\[Desktop Entry\]/ { in_section=1; print; next }
-          /^\[/ { in_section=0 }
-          in_section {
-            if (/^[[:space:]]*(Name|Comment)(\[.*\])?=/) next
-            sub(/^[[:space:]]*GenericName/, "Name")
-          }
-          { print }
-        ' "chroot/var/lib/semantic-ux/applications/${file}" > "chroot/var/lib/semantic-ux/applications/${file}.tmp"
-        mv "chroot/var/lib/semantic-ux/applications/${file}.tmp" "chroot/var/lib/semantic-ux/applications/${file}"
-      elif  [ "${name}" = "%Name" ]; then
-       awk '
-          /^\[Desktop Entry\]/ { in_section=1; print; next }
-          /^\[/ { in_section=0 }
-          in_section {
-            if (/^[[:space:]]*(GenericName|Comment)(\[.*\])?=/) next
-          }
-          { print }
-        ' "chroot/var/lib/semantic-ux/applications/${file}" > "chroot/var/lib/semantic-ux/applications/${file}.tmp"
-        mv "chroot/var/lib/semantic-ux/applications/${file}.tmp" "chroot/var/lib/semantic-ux/applications/${file}"
-      else
-        awk -v name="${name}" '
-          /^\[Desktop Entry\]/ { in_section=1; print; next }
-          /^\[/ { in_section=0 }
-          in_section {
-            if (/^[[:space:]]*(GenericName|Comment)(\[.*\])?=/) next
-            if (/^[[:space:]]*Name(\[.*\])?=/) { sub(/=.*/, "=" name) }
-          }
-          { print }
-        ' "chroot/var/lib/semantic-ux/applications/${file}" > "chroot/var/lib/semantic-ux/applications/${file}.tmp"
-        mv "chroot/var/lib/semantic-ux/applications/${file}.tmp" "chroot/var/lib/semantic-ux/applications/${file}"
-      fi
+        [ ! -f "chroot/usr/share/applications/${file}" ] && continue
 
-      cp "chroot/var/lib/semantic-ux/applications/${file}" "chroot/usr/local/share/applications"
+        # Copia do source apenas na primeira vez que o arquivo aparece
+        if [ "${file}" != "${prev_file}" ]; then
+            cp "chroot/usr/share/applications/${file}" "chroot/var/lib/semantic-ux/applications"
+            prev_file="${file}"
+        fi
+
+        dest="chroot/var/lib/semantic-ux/applications/${file}"
+        tmp="${dest}.tmp"
+
+        if [ -z "${lang}" ]; then
+            # Entrada padrão (sem idioma): atualiza Categories e Name base
+            sed -i "s|^Categories=.*|Categories=${category}|g" "${dest}"
+
+            case "${name}" in
+                %GenericName)
+                    # Remove Name[*]= e Comment[*]=; renomeia GenericName= para Name=
+                    awk '
+                        /^\[Desktop Entry\]/ { in_section=1; print; next }
+                        /^\[/               { in_section=0 }
+                        in_section && /^[[:space:]]*(Name|Comment)(\[.*\])?=/ { next }
+                        in_section          { sub(/^[[:space:]]*GenericName/, "Name") }
+                        { print }
+                    ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
+                    ;;
+                %Name)
+                    # Remove GenericName[*]= e Comment[*]=; mantém Name[*]= existente
+                    awk '
+                        /^\[Desktop Entry\]/ { in_section=1; print; next }
+                        /^\[/               { in_section=0 }
+                        in_section && /^[[:space:]]*(GenericName|Comment)(\[.*\])?=/ { next }
+                        { print }
+                    ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
+                    ;;
+                *)
+                    # Remove GenericName[*]= e Comment[*]=; substitui todos os Name[*]= pelo valor fornecido
+                    awk -v name="${name}" '
+                        /^\[Desktop Entry\]/ { in_section=1; print; next }
+                        /^\[/               { in_section=0 }
+                        in_section && /^[[:space:]]*(GenericName|Comment)(\[.*\])?=/ { next }
+                        in_section && /^[[:space:]]*Name(\[.*\])?=/ { sub(/=.*/, "=" name) }
+                        { print }
+                    ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
+                    ;;
+            esac
+        else
+            # Entrada localizada: insere ou substitui Name[lang]= logo após Name=
+            awk -v lang="${lang}" -v name="${name}" '
+                /^\[Desktop Entry\]/ { in_section=1; print; next }
+                /^\[/               { in_section=0 }
+                in_section && /^[[:space:]]*Name\[/ \
+                    && $0 ~ ("^[[:space:]]*Name\\[" lang "\\]=") { next }
+                { print }
+                in_section && /^[[:space:]]*Name=/ { print "Name[" lang "]=" name }
+            ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
+        fi
+
+        cp "${dest}" "chroot/usr/local/share/applications"
     done
     IFS=$' '
-
-    echo "  - Split KDE Plasma Settings in KCM menu items"
-    IFS=$'\n'
-    for line in $(sed "s|#.*||g" "${variant_data_dir}/plasma-kcms.yaml"); do
-      IFS=$' '
-      name=$(echo $line     | cut -d':' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-      icon=$(echo $line | cut -d':' -f 2 | cut -d'|' -f 1 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-      kcms=$(echo $line     | cut -d':' -f 2 | cut -d'|' -f 2 | sed 's/^[[:blank:]]*//;s/[[:blank:]]*$//')
-
-      (
-        echo "[Desktop Entry]"
-        echo "Type=Application"
-        echo "Exec=kcmshell6 ${kcms}"
-        echo "Icon=${icon}"
-        echo "Name=Configurar: ${name}"
-        echo "Categories=System"
-      ) > "chroot/usr/local/share/applications/kcm_${icon}.desktop"
-    done
-    IFS=$' '
-
 }
-
 
 function default-applications {
     show-header "Default applications for file types"
