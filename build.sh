@@ -1190,6 +1190,8 @@ function cleanup-system-image {
     echo "  - Cleaning up APT"
     chroot "chroot" apt clean
     chroot "chroot" apt -q modernize-sources -y
+    # modernize-sources keeps the old sources.list as sources.list.bak.
+    rm -f "chroot/etc/apt/sources.list.bak"
 
     echo "  - Cleaning up logs"
     chroot "chroot" find /var/log -type f -name "*.log" -exec truncate -s 0 {} \;

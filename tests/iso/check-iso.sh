@@ -194,7 +194,7 @@ grep -qx 'plugin=local.laetum.controlcenter' <<< "${applets}" && ! grep -q 'KdeC
 
 # --- Translations of the Mainuan applications -------------------------------------
 missing_mo=""
-for domain in mainuan-welcome mainuan-atualizador-recursos mainuan-gestao-drivers system-upgrade painel-de-controle \
+for domain in mainuan-welcome mainuan-atualizador-recursos mainuan-gestao-drivers system-upgrade painel-controle \
               mainuan-flatpak-install-gui mainuan-install-appimage pkg-manager-gui deb-manager-gui instalador-de-fontes; do
   grep -q "/usr/share/locale/pt_BR/LC_MESSAGES/${domain}.mo$\|/LC_MESSAGES/${domain}.mo$" <<< "${listing_sq}" || missing_mo+=" ${domain}"
 done
@@ -207,8 +207,9 @@ grep -q '^    - name: "Mainuan"$' <<< "$(sq etc/calamares/modules/partition.conf
 grep -q 'plasma-discover-notifier' <<< "$(sq etc/calamares/modules/packages.conf)" \
   && pass "Calamares removes plasma-discover-notifier from the target" \
   || fail "Calamares removes plasma-discover-notifier from the target"
-installed plasma-discover-notifier && pass "plasma-discover-notifier kept in the live session" \
-  || fail "plasma-discover-notifier kept in the live session"
+# Removed from the image by remove-base-packages.lst; Discover itself stays.
+! installed plasma-discover-notifier && installed plasma-discover \
+  && pass "plasma-discover-notifier removed, Discover kept" || fail "plasma-discover-notifier removed, Discover kept"
 grep -q 'qsTr' <<< "$(sq etc/calamares/branding/vendor/show.qml)" \
   && pass "Calamares slideshow with translatable text" || fail "Calamares slideshow with translatable text"
 qm_count="$(grep -c '^/etc/calamares/branding/vendor/lang/calamares-vendor_.*\.qm$' <<< "${listing_sq}")"
