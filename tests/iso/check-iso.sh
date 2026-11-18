@@ -27,7 +27,7 @@ xorriso -indev "${iso}" -report_system_area plain 2>/dev/null | grep -q 'MBR par
 # 2. Files needed by GRUB, casper and the installer.
 listing="$(xorriso -indev "${iso}" -find / -type f 2>/dev/null | tr -d "'")"
 for path in /casper/vmlinuz /casper/initrd /casper/filesystem.squashfs /casper/filesystem.manifest \
-            /EFI/BOOT/BOOTX64.efi /boot/grub/bios.img /isolinux/grub.cfg /.disk/info /md5sum.txt /Mainuan; do
+            /EFI/BOOT/BOOTX64.efi /boot/grub/bios.img /boot/grub/unicode.pf2 /isolinux/grub.cfg /.disk/info /md5sum.txt /Mainuan; do
   grep -qx "${path}" <<< "${listing}" && pass "file ${path}" || fail "file ${path}"
 done
 

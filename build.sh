@@ -1226,6 +1226,14 @@ function build-grub {
     cp --dereference chroot/boot/vmlinuz    image/casper/vmlinuz
     cp --dereference chroot/boot/initrd.img image/casper/initrd
 
+    # Font for gfxterm: without it the "if loadfont" block below is skipped
+    # and the Live menu stays in the firmware text console.
+    if [[ -f chroot/usr/share/grub/unicode.pf2 ]]; then
+        cp chroot/usr/share/grub/unicode.pf2 image/boot/grub/unicode.pf2
+    else
+        cp /usr/share/grub/unicode.pf2 image/boot/grub/unicode.pf2
+    fi
+
     rm -rf image/boot/grub/themes
     if [[ -f chroot/usr/share/grub/themes/mainuan/theme.txt ]]; then
         mkdir -p image/boot/grub/themes
@@ -1346,7 +1354,7 @@ function build-grub {
         )
         
         grub-mkstandalone --format=i386-pc --output=isolinux/core.img                      \
-          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo"  \
+          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo all_video font gfxterm gfxmenu png jpeg test echo halt reboot"  \
           --modules="linux16 linux normal iso9660 biosdisk search" --locales="" --fonts="" \
           "boot/grub/grub.cfg=isolinux/grub.cfg"
           
