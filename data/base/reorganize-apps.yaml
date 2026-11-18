@@ -1,21 +1,76 @@
+org.kde.ark.desktop:     Utility; | Compactador de arquivos
+org.kde.ark.desktop[pt]: Utility; | Compactador de arquivos
+org.kde.ark.desktop[en]: Utility; | Archive Manager
+org.kde.ark.desktop[es]: Utility; | Gestor de archivos comprimidos
+org.kde.ark.desktop[fr]: Utility; | Gestionnaire d’archives
+org.kde.ark.desktop[de]: Utility; | Archivverwaltung
 
-# Utilitários
+org.kde.kate.desktop:     Development; | Editor de códigos
+org.kde.kate.desktop[pt]: Development; | Editor de códigos
+org.kde.kate.desktop[en]: Development; | Code Editor
+org.kde.kate.desktop[es]: Development; | Editor de código
+org.kde.kate.desktop[fr]: Development; | Éditeur de code
+org.kde.kate.desktop[de]: Development; | Code-Editor
 
-org.kde.ark.desktop: Utility; | Compactador de arquivos
+org.kde.gwenview.desktop:     Utility; | Galeria de imagens
+org.kde.gwenview.desktop[pt]: Utility; | Galeria de imagens
+org.kde.gwenview.desktop[en]: Utility; | Image Viewer
+org.kde.gwenview.desktop[es]: Utility; | Visor de imágenes
+org.kde.gwenview.desktop[fr]: Utility; | Visionneuse d’images
+org.kde.gwenview.desktop[de]: Utility; | Bildbetrachter
+
+org.kde.kcharselect.desktop:     Utility; | Escolher caractere
+org.kde.kcharselect.desktop[pt]: Utility; | Escolher caractere
+org.kde.kcharselect.desktop[en]: Utility; | Character Selector
+org.kde.kcharselect.desktop[es]: Utility; | Selector de caracteres
+org.kde.kcharselect.desktop[fr]: Utility; | Sélecteur de caractères
+org.kde.kcharselect.desktop[de]: Utility; | Zeichenauswahl
+
+org.kde.marknote.desktop:     Utility; | Anotações
+org.kde.marknote.desktop[pt]: Utility; | Anotações
+org.kde.marknote.desktop[en]: Utility; | Notes
+org.kde.marknote.desktop[es]: Utility; | Notas
+org.kde.marknote.desktop[fr]: Utility; | Notes
+org.kde.marknote.desktop[de]: Utility; | Notizen
+
+synaptic.desktop:     System; | Gerenciar componentes de sistema
+synaptic.desktop[pt]: System; | Gerenciar componentes de sistema
+synaptic.desktop[en]: System; | Manage System Components
+synaptic.desktop[es]: System; | Gestionar componentes del sistema
+synaptic.desktop[fr]: System; | Gérer les composants du système
+synaptic.desktop[de]: System; | Systemkomponenten verwalten
+
+timeshift-gtk.desktop:     System; | Backup e Restauração
+timeshift-gtk.desktop[pt]: System; | Backup e Restauração
+timeshift-gtk.desktop[en]: System; | Backup and Restore
+timeshift-gtk.desktop[es]: System; | Copia de seguridad y restauración
+timeshift-gtk.desktop[fr]: System; | Sauvegarde et restauration
+timeshift-gtk.desktop[de]: System; | Sichern und Wiederherstellen
+
+org.kde.kalk.desktop:     Utility; | Calculadora
+org.kde.kalk.desktop[pt]: Utility; | Calculadora
+org.kde.kalk.desktop[en]: Utility; | Calculator
+org.kde.kalk.desktop[es]: Utility; | Calculadora
+org.kde.kalk.desktop[fr]: Utility; | Calculatrice
+org.kde.kalk.desktop[de]: Utility; | Taschenrechner
+
+clamtk.desktop:     System; | Antivírus
+clamtk.desktop[pt]: System; | Antivírus
+clamtk.desktop[en]: System; | Antivirus
+clamtk.desktop[es]: System; | Antivirus
+clamtk.desktop[fr]: System; | Antivirus
+clamtk.desktop[de]: System; | Antivirenprogramm
+
+#--------------------------------------------------------------------------------------------------------------
+
 org.kde.calindori.desktop: Utility; | %GenericName
-org.kde.gwenview.desktop:  Utility; | Galeria de imagens
 org.kde.haruna.desktop: AudioVideo; | %GenericName
 org.kde.kamoso.desktop: Utility; | %GenericName
-org.kde.kate.desktop: Development; | Editor de códigos
 org.kde.kcalc.desktop: Utility; | %GenericName
-org.kde.kalk.desktop: Utility; | Calculadora
 io.github.thetumultuousunicornofdarkness.cpu-x.desktop: System; | CPU-X
-org.kde.kcharselect.desktop: Utility; | Escolher caractere
 org.kde.kclock.desktop: Utility; | %Name
 org.kde.kfind.desktop: Utility; | %GenericName
-org.kde.kolourpaint.desktop: Graphics; | Desenho
 org.kde.kwrite.desktop: Utility; | %GenericName
-org.kde.marknote.desktop: Utility; | Anotações
 org.kde.okular.desktop: Utility; | %GenericName
 org.kde.skanlite.desktop: Utility; | Escaneador de imagens
 org.kde.skanpage.desktop: Utility; | Escaneador de documentos
@@ -28,10 +83,8 @@ org.kde.kdeconnect.sms.desktop: Utility; | %GenericName
 org.kde.khelpcenter.desktop: Documentation; | %GenericName
 org.kde.kinfocenter.desktop: Documentation; |  %GenericName
 org.kde.plasma-welcome.desktop: Documentation; | Tutorial
-clamtk.desktop: System; | Antivírus
 org.kde.konsole.desktop: System; | %GenericName
 org.kde.discover.desktop: System; | %GenericName
-synaptic.desktop: System; | Gerenciar componentes de sistema
 org.kde.krdc.desktop: System; | %GenericName
 org.kde.partitionmanager.desktop: System; | %GenericName
 org.kde.ksystemlog.desktop: System; | %GenericName
@@ -43,4 +96,3 @@ libreoffice-math.desktop: Office; | %Name
 libreoffice-startcenter.desktop: Office; | %Name
 libreoffice-writer.desktop: Office; | %Name
 org.kde.kmenuedit.desktop: System; | %Name
-timeshift-gtk.desktop: System; | Backup e Restauração
