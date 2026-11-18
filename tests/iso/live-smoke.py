@@ -49,7 +49,7 @@ CHECKS = {
                     "loginctl show-session \"$s\" -p Type -p Name -p Desktop; done || true",
     "mainuan_packages": "dpkg-query -W -f='${Package}\\t${Version}\\t${Status}\\n' "
                         "mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade "
-                        "mainuan-gestao-drivers painel-de-controle mainuan-grub-editor "
+                        "mainuan-gestao-drivers painel-de-controle "
                         "mainuan-flatpak-install-gui mainuan-install-appimage "
                         "mainuan-atualizador-recursos pkg-manager-gui calamares plasma-workspace "
                         "2>&1 || true",

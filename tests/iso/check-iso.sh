@@ -78,7 +78,7 @@ status="$(sq var/lib/dpkg/status)"
 installed() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Status: install ok installed/{ok=1} END{exit !ok}' <<< "${status}"; }
 for package in casper calamares sddm plasma-workspace kwin-wayland plasma-desktop grub-efi-amd64-signed shim-signed \
                mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade mainuan-gestao-drivers \
-               painel-de-controle mainuan-grub-editor mainuan-flatpak-install-gui mainuan-install-appimage \
+               painel-de-controle mainuan-flatpak-install-gui mainuan-install-appimage \
                mainuan-atualizador-recursos pkg-manager-gui onlyoffice-desktopeditors firefox \
                mainuan-wallpapers mainuan-icon-themes mainuan-plasma-themes mainuan-desktop-defaults \
                mainuan-user-avatar \
@@ -107,6 +107,29 @@ grep -q 'cdrom' <<< "${context}" && fail "Calamares UEFI step does not need a re
   || pass "Calamares UEFI step does not need a repository on the medium"
 locale_conf="$(sq etc/calamares/modules/locale.conf)"
 grep -qx 'zone: "Sao_Paulo"' <<< "${locale_conf}" && pass "Calamares default zone Sao_Paulo" || fail "Calamares default zone Sao_Paulo"
+
+# Mainuan identity on the login screen and the boot splash.
+sddm_conf="$(sq etc/sddm.conf.d/30-mainuan.conf)"
+grep -qx 'Current=breeze' <<< "${sddm_conf}" && pass "SDDM theme Breeze (Mainuan)" || fail "SDDM theme Breeze (Mainuan)"
+grep -qx 'background=/usr/share/wallpapers/01ciano.png' <<< "$(sq usr/share/sddm/themes/breeze/theme.conf.user)" \
+  && pass "SDDM Mainuan background" || fail "SDDM Mainuan background"
+plymouth_default="$(unsquashfs -lls "${squash}" etc/alternatives/default.plymouth 2>/dev/null | grep -o '\-> .*')"
+grep -q 'themes/mainuan/mainuan.plymouth' <<< "${plymouth_default}" && pass "Plymouth default theme mainuan" \
+  || fail "Plymouth default theme mainuan (${plymouth_default})"
+
+text_default="$(unsquashfs -lls "${squash}" etc/alternatives/text.plymouth 2>/dev/null | grep -o '\-> .*')"
+grep -q 'mainuan-text' <<< "${text_default}" && pass "Plymouth text theme mainuan-text" || fail "Plymouth text theme mainuan-text (${text_default})"
+anim="$(unsquashfs -lls "${squash}" usr/share/plymouth/themes/mainuan/throbber-0001.png 2>/dev/null | tail -1)"
+[[ "${anim}" == -* ]] && pass "Plymouth animation is a regular file (reaches the initramfs)" \
+  || fail "Plymouth animation is a regular file (reaches the initramfs)"
+wm_mainuan="$(sq usr/share/plymouth/themes/mainuan/watermark.png | sha256sum | cut -d' ' -f1)"
+wm_spinner="$(sq usr/share/plymouth/themes/spinner/watermark.png | sha256sum | cut -d' ' -f1)"
+[[ -n "$(sq usr/share/plymouth/themes/mainuan/watermark.png | head -c 8)" && "${wm_mainuan}" != "${wm_spinner}" ]] \
+  && pass "Plymouth watermark is the Mainuan logo (not Spinner/Ubuntu)" \
+  || fail "Plymouth watermark is the Mainuan logo (not Spinner/Ubuntu)"
+face="$(unsquashfs -lls "${squash}" usr/share/sddm/themes/breeze/faces/.face.icon 2>/dev/null | grep -o '\-> .*')"
+grep -q 'plasma/avatars/kubuntu-bug.png' <<< "${face}" && pass "SDDM default face is the Mainuan logo" \
+  || fail "SDDM default face is the Mainuan logo (${face})"
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
