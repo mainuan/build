@@ -73,8 +73,23 @@ org.kde.kfind.desktop: Utility; | %GenericName
 org.kde.kwrite.desktop: Utility; | %GenericName
 org.kde.okular.desktop: Utility; | %GenericName
 org.kde.skanlite.desktop: Utility; | Escaneador de imagens
+org.kde.skanlite.desktop[pt]: Utility; | Escaneador de imagens
+org.kde.skanlite.desktop[en]: Utility; | Image Scanner
+org.kde.skanlite.desktop[es]: Utility; | Escáner de imágenes
+org.kde.skanlite.desktop[fr]: Utility; | Numériseur d’images
+org.kde.skanlite.desktop[de]: Utility; | Bildscanner
 org.kde.skanpage.desktop: Utility; | Escaneador de documentos
+org.kde.skanpage.desktop[pt]: Utility; | Escaneador de documentos
+org.kde.skanpage.desktop[en]: Utility; | Document Scanner
+org.kde.skanpage.desktop[es]: Utility; | Escáner de documentos
+org.kde.skanpage.desktop[fr]: Utility; | Numériseur de documents
+org.kde.skanpage.desktop[de]: Utility; | Dokumentenscanner
 org.kde.spectacle.desktop: Utility; | Captura de tela
+org.kde.spectacle.desktop[pt]: Utility; | Captura de tela
+org.kde.spectacle.desktop[en]: Utility; | Screenshot
+org.kde.spectacle.desktop[es]: Utility; | Captura de pantalla
+org.kde.spectacle.desktop[fr]: Utility; | Capture d’écran
+org.kde.spectacle.desktop[de]: Utility; | Bildschirmfoto
 org.kubuntu.driver-manager.desktop: System; | Gerenciador de drivers
 org.kde.elisa.desktop: Utility; | %GenericName
 org.kde.dolphin.desktop: Utility; | %GenericName
@@ -83,6 +98,11 @@ org.kde.kdeconnect.sms.desktop: Utility; | %GenericName
 org.kde.khelpcenter.desktop: Documentation; | %GenericName
 org.kde.kinfocenter.desktop: Documentation; |  %GenericName
 org.kde.plasma-welcome.desktop: Documentation; | Tutorial
+org.kde.plasma-welcome.desktop[pt]: Documentation; | Tutorial
+org.kde.plasma-welcome.desktop[en]: Documentation; | Tutorial
+org.kde.plasma-welcome.desktop[es]: Documentation; | Tutorial
+org.kde.plasma-welcome.desktop[fr]: Documentation; | Tutoriel
+org.kde.plasma-welcome.desktop[de]: Documentation; | Einführung
 org.kde.konsole.desktop: System; | %GenericName
 org.kde.discover.desktop: System; | %GenericName
 org.kde.krdc.desktop: System; | %GenericName
