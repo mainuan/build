@@ -1098,7 +1098,8 @@ function create-symlinks {
 
 
         origin=$(chroot "chroot" readlink -f "${origin}");
-        target=$(chroot "chroot" readlink -f "${target}");
+        # -m: the target directory may not exist yet (created below).
+        target=$(chroot "chroot" readlink -m "${target}");
         local target_dir=$(chroot "chroot" dirname "${target}");
 
         chroot "chroot" rm -rf "${target}";
