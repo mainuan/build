@@ -1226,11 +1226,26 @@ function build-grub {
     cp --dereference chroot/boot/vmlinuz    image/casper/vmlinuz
     cp --dereference chroot/boot/initrd.img image/casper/initrd
 
+    # Font for gfxterm: without it the "if loadfont" block below is skipped
+    # and the Live menu stays in the firmware text console.
+    if [[ -f chroot/usr/share/grub/unicode.pf2 ]]; then
+        cp chroot/usr/share/grub/unicode.pf2 image/boot/grub/unicode.pf2
+    else
+        cp /usr/share/grub/unicode.pf2 image/boot/grub/unicode.pf2
+    fi
+
+    rm -rf image/boot/grub/themes
+    if [[ -f chroot/usr/share/grub/themes/mainuan/theme.txt ]]; then
+        mkdir -p image/boot/grub/themes
+        cp -r chroot/usr/share/grub/themes/mainuan image/boot/grub/themes/mainuan
+    fi
+
     (
-        sed "s|#.*||g" "${variant_data_dir}/grub-entries.yaml"  | sed '/^$/d' | sed 's|^|menuentry |;s|$|\n  initrd /casper/initrd\n}\n|;s|:| {\n  |'
-        
-        echo "menuentry \"Reboot\" {reboot}"
-        echo "menuentry \"Shutdown\" {halt}"
+        # --class picks the icon of the Mainuan GRUB theme.
+        sed "s|#.*||g" "${variant_data_dir}/grub-entries.yaml"  | sed '/^$/d' | sed 's|^|menuentry |;s|$|\n  initrd /casper/initrd\n}\n|;s|:| --class mainuan --class os {\n  |'
+
+        echo "menuentry \"Reboot\" --class restart {reboot}"
+        echo "menuentry \"Shutdown\" --class shutdown {halt}"
         echo
     ) > image/boot/grub/loopback.cfg
 
@@ -1278,6 +1293,15 @@ function build-grub {
         echo "	insmod efi_uga"
         echo "	insmod gfxterm"
         echo "	terminal_output gfxterm"
+        # Mainuan GRUB theme (package mainuan-grub-theme) when it is in the
+        # image; without graphics GRUB keeps its text menu.
+        if [[ -f image/boot/grub/themes/mainuan/theme.txt ]]; then
+            echo "	set gfxmode=1920x1080,auto"
+            for font in image/boot/grub/themes/mainuan/*.pf2; do
+                echo "	loadfont /boot/grub/themes/mainuan/$(basename "$font")"
+            done
+            echo "	set theme=/boot/grub/themes/mainuan/theme.txt"
+        fi
         echo "fi"
         # Mirror the menu on the first serial port when there is one
         # (headless machines, automated boot tests); harmless otherwise.
@@ -1330,7 +1354,7 @@ function build-grub {
         )
         
         grub-mkstandalone --format=i386-pc --output=isolinux/core.img                      \
-          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo"  \
+          --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls serial terminfo all_video font gfxterm gfxmenu png jpeg test echo halt reboot"  \
           --modules="linux16 linux normal iso9660 biosdisk search" --locales="" --fonts="" \
           "boot/grub/grub.cfg=isolinux/grub.cfg"
           

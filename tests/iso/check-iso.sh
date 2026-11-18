@@ -27,7 +27,7 @@ xorriso -indev "${iso}" -report_system_area plain 2>/dev/null | grep -q 'MBR par
 # 2. Files needed by GRUB, casper and the installer.
 listing="$(xorriso -indev "${iso}" -find / -type f 2>/dev/null | tr -d "'")"
 for path in /casper/vmlinuz /casper/initrd /casper/filesystem.squashfs /casper/filesystem.manifest \
-            /EFI/BOOT/BOOTX64.efi /boot/grub/bios.img /isolinux/grub.cfg /.disk/info /md5sum.txt /Mainuan; do
+            /EFI/BOOT/BOOTX64.efi /boot/grub/bios.img /boot/grub/unicode.pf2 /isolinux/grub.cfg /.disk/info /md5sum.txt /Mainuan; do
   grep -qx "${path}" <<< "${listing}" && pass "file ${path}" || fail "file ${path}"
 done
 
@@ -61,6 +61,17 @@ fi
 cfg="${extract}/isolinux/grub.cfg"
 grep -q 'boot=casper' "${cfg}" && pass "GRUB entry boots casper" || fail "GRUB entry boots casper"
 grep -q 'serial --unit=0' "${cfg}" && pass "GRUB serial mirror" || fail "GRUB serial mirror"
+# Live menu with the Mainuan GRUB theme (fonts loaded before "set theme").
+grep -q 'set theme=/boot/grub/themes/mainuan/theme.txt' "${cfg}" && pass "Live GRUB uses the Mainuan theme" \
+  || fail "Live GRUB uses the Mainuan theme"
+theme_ok=1
+for font in $(grep -o '"Noto Sans[^"]*"' "${extract}/boot/grub/themes/mainuan/theme.txt" 2>/dev/null | sort -u | tr -d '"' | tr 'A-Z ' 'a-z_'); do
+  [ -s "${extract}/boot/grub/themes/mainuan/${font}.pf2" ] && grep -q "loadfont /boot/grub/themes/mainuan/${font}.pf2" "${cfg}" || theme_ok=0
+done
+[ -s "${extract}/boot/grub/themes/mainuan/theme.txt" ] && [ "${theme_ok}" = 1 ] \
+  && pass "Live GRUB theme fonts present and loaded" || fail "Live GRUB theme fonts present and loaded"
+grep -q -- '--class mainuan' "${cfg}" && pass "Live GRUB entries carry the mainuan class (icon)" \
+  || fail "Live GRUB entries carry the mainuan class (icon)"
 file -b "${extract}/casper/vmlinuz" | grep -q 'Linux kernel x86 boot executable' \
   && pass "casper/vmlinuz is a Linux kernel" || fail "casper/vmlinuz is a Linux kernel"
 kernel_version="$(file -b "${extract}/casper/vmlinuz" | sed -n 's/.*version \([^ ]*\).*/\1/p')"
@@ -80,7 +91,7 @@ for package in casper calamares sddm plasma-workspace kwin-wayland plasma-deskto
                mainuan-welcome deb-manager-gui instalador-de-fontes system-upgrade mainuan-gestao-drivers \
                painel-de-controle mainuan-flatpak-install-gui mainuan-install-appimage \
                mainuan-atualizador-recursos pkg-manager-gui onlyoffice-desktopeditors firefox \
-               mainuan-wallpapers mainuan-icon-themes mainuan-plasma-themes mainuan-desktop-defaults \
+               mainuan-wallpapers mainuan-icon-themes mainuan-plasma-themes mainuan-desktop-defaults mainuan-grub-theme mainuan-plasma-splash \
                mainuan-user-avatar \
                language-pack-pt; do
   installed "${package}" && pass "package ${package} installed" || fail "package ${package} installed"
@@ -130,6 +141,22 @@ wm_spinner="$(sq usr/share/plymouth/themes/spinner/watermark.png | sha256sum | c
 face="$(unsquashfs -lls "${squash}" usr/share/sddm/themes/breeze/faces/.face.icon 2>/dev/null | grep -o '\-> .*')"
 grep -q 'plasma/avatars/kubuntu-bug.png' <<< "${face}" && pass "SDDM default face is the Mainuan logo" \
   || fail "SDDM default face is the Mainuan logo (${face})"
+
+throbbers="$(unsquashfs -l "${squash}" 'usr/share/plymouth/themes/mainuan/' 2>/dev/null | grep -c 'mainuan/throbber-[0-9]*\.png$')"
+[ "${throbbers}" = 48 ] && pass "Plymouth ring animation (48 frames)" || fail "Plymouth ring animation (48 frames, found ${throbbers})"
+grep -qx 'ExecStart=-/usr/bin/plymouth quit --retain-splash' \
+  <<< "$(sq usr/lib/systemd/system/plymouth-quit.service.d/50-mainuan-retain-splash.conf)" \
+  && pass "Plymouth keeps the last frame until SDDM" || fail "Plymouth keeps the last frame until SDDM"
+# Installed system: GRUB theme (copied to /boot) and its options.
+[ -n "$(sq boot/grub/themes/mainuan/theme.txt)" ] && pass "GRUB theme in /boot/grub/themes/mainuan" \
+  || fail "GRUB theme in /boot/grub/themes/mainuan"
+grep -q 'GRUB_THEME=/boot/grub/themes/mainuan/theme.txt' <<< "$(sq etc/default/grub.d/60-mainuan-theme.cfg)" \
+  && pass "GRUB theme enabled in /etc/default/grub.d" || fail "GRUB theme enabled in /etc/default/grub.d"
+# Mainuan global theme with the Plasma splash, the system default.
+[ -n "$(sq usr/share/plasma/look-and-feel/org.mainuan.desktop/contents/splash/Splash.qml)" ] \
+  && pass "Plasma splash (global theme org.mainuan.desktop)" || fail "Plasma splash (global theme org.mainuan.desktop)"
+grep -qx 'LookAndFeelPackage=org.mainuan.desktop' <<< "$(sq etc/xdg/kdeglobals)" \
+  && pass "Mainuan global theme is the system default" || fail "Mainuan global theme is the system default"
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
