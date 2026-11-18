@@ -855,23 +855,56 @@ function reorganize-menu {
                     ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
                     ;;
                 *)
-                    # Remove GenericName[*]= e Comment[*]=; substitui todos os Name[*]= pelo valor fornecido
+                    # Nome descritivo fixo. As variantes por idioma (linhas
+                    # arquivo.desktop[xx]) definem o texto de cada idioma; os
+                    # idiomas sem variante usam a descrição traduzida do próprio
+                    # aplicativo (GenericName[xx]) ou, sem ela, o Name[xx]
+                    # original. Name= (base, sem idioma) recebe o GenericName em
+                    # inglês, para que nenhum idioma sem variante caia no texto
+                    # em português. Remove GenericName[*]= e Comment[*]=.
                     awk -v name="${name}" '
-                        /^\[Desktop Entry\]/ { in_section=1; print; next }
-                        /^\[/               { in_section=0 }
+                        function key_of(line, field) {
+                            line = substr(line, 1, index(line, "=") - 1)
+                            sub("^[[:space:]]*" field, "", line)
+                            return line
+                        }
+                        NR == FNR {
+                            if ($0 ~ /^\[Desktop Entry\]/) { s = 1; next }
+                            if ($0 ~ /^\[/) { s = 0; next }
+                            if (s && $0 ~ /^[[:space:]]*GenericName(\[[^]]*\])?=/)
+                                generic[key_of($0, "GenericName")] = substr($0, index($0, "=") + 1)
+                            if (s && $0 ~ /^[[:space:]]*Name(\[[^]]*\])?=/) has[key_of($0, "Name")] = 1
+                            next
+                        }
+                        /^\[Desktop Entry\]/ { in_section = 1; print; next }
+                        /^\[/                { in_section = 0 }
                         in_section && /^[[:space:]]*(GenericName|Comment)(\[.*\])?=/ { next }
-                        in_section && /^[[:space:]]*Name(\[.*\])?=/ { sub(/=.*/, "=" name) }
+                        in_section && /^[[:space:]]*Name(\[[^]]*\])?=/ {
+                            k = key_of($0, "Name")
+                            if (k == "") {
+                                print "Name=" (("" in generic) ? generic[""] : name)
+                                # Idiomas que só têm GenericName[xx] ganham Name[xx].
+                                for (g in generic) if (g != "" && !(g in has)) print "Name" g "=" generic[g]
+                            } else if (k in generic) {
+                                print "Name" k "=" generic[k]
+                            } else {
+                                print
+                            }
+                            next
+                        }
                         { print }
-                    ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
+                    ' "${dest}" "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"
                     ;;
             esac
         else
-            # Entrada localizada: insere ou substitui Name[lang]= logo após Name=
+            # Entrada localizada: insere ou substitui Name[lang]= logo após Name=.
+            # Remove também as variantes regionais (Name[pt_BR] para [pt]),
+            # que teriam prioridade sobre Name[pt] numa sessão pt_BR.
             awk -v lang="${lang}" -v name="${name}" '
                 /^\[Desktop Entry\]/ { in_section=1; print; next }
                 /^\[/               { in_section=0 }
                 in_section && /^[[:space:]]*Name\[/ \
-                    && $0 ~ ("^[[:space:]]*Name\\[" lang "\\]=") { next }
+                    && $0 ~ ("^[[:space:]]*Name\\[" lang "([_@][^]]*)?\\]=") { next }
                 { print }
                 in_section && /^[[:space:]]*Name=/ { print "Name[" lang "]=" name }
             ' "${dest}" > "${tmp}" && mv "${tmp}" "${dest}"

@@ -179,6 +179,17 @@ ark="$(sq usr/local/share/applications/org.kde.ark.desktop)"
 grep -qx 'Name\[en\]=Archive Manager' <<< "${ark}" && grep -qx 'Name\[es\]=Gestor de archivos comprimidos' <<< "${ark}" \
   && pass "Reorganized menu names translated (reorganize-apps.yaml)" \
   || fail "Reorganized menu names translated (reorganize-apps.yaml)"
+# Languages without a variant get the app's own translation, never Portuguese:
+# base Name in English, Name[it] from KDE, no Name[pt_BR] hiding Name[pt].
+desktop_entry() { awk '/^\[Desktop Entry\]/{s=1;next} /^\[/{s=0} s' <<< "$1"; }
+ark_main="$(desktop_entry "${ark}")"
+spectacle_main="$(desktop_entry "$(sq usr/local/share/applications/org.kde.spectacle.desktop)")"
+! grep -qx 'Name=Compactador de arquivos' <<< "${ark_main}" \
+  && grep -q '^Name\[it\]=' <<< "${ark_main}" && ! grep -qx 'Name\[it\]=Compactador de arquivos' <<< "${ark_main}" \
+  && ! grep -q '^Name\[pt_BR\]=' <<< "${ark_main}" && grep -qx 'Name\[pt\]=Compactador de arquivos' <<< "${ark_main}" \
+  && grep -qx 'Name\[en\]=Screenshot' <<< "${spectacle_main}" && ! grep -qx 'Name=Captura de tela' <<< "${spectacle_main}" \
+  && pass "Menu names in languages without a variant are not Portuguese" \
+  || fail "Menu names in languages without a variant are not Portuguese"
 installer="$(sq usr/share/applications/kubuntu-calamares.desktop)"
 grep -qx 'Name=Install System' <<< "${installer}" && grep -qx 'Name\[pt_BR\]=Instalar o Sistema' <<< "${installer}" \
   && pass "Installer launcher translated" || fail "Installer launcher translated"
@@ -222,6 +233,12 @@ grep -q 'qsTr' <<< "$(sq etc/calamares/branding/vendor/show.qml)" \
 qm_count="$(grep -c '^/etc/calamares/branding/vendor/lang/calamares-vendor_.*\.qm$' <<< "${listing_sq}")"
 [ "${qm_count}" -ge 33 ] && pass "Calamares slideshow translations (${qm_count})" \
   || fail "Calamares slideshow translations (${qm_count})"
+# Catalogs with the lost %N placeholders fixed, read by Calamares before the
+# copies built into it (pt_BR summary said "Configure timezone para 1").
+sq usr/share/calamares/lang/calamares_pt_BR.qm \
+  | python3 -c "import sys; d=sys.stdin.buffer.read(); sys.exit(not ('Definir o fuso horário para %1.'.encode('utf-16-be') in d and 'Configure timezone para 1'.encode('utf-16-be') not in d))" \
+  && pass "Calamares pt_BR translation fixed (time zone, keyboard)" \
+  || fail "Calamares pt_BR translation fixed (time zone, keyboard)"
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
