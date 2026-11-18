@@ -725,7 +725,9 @@ function remove-packages-contents {
       done
       # Directories the package left empty (deepest first).
       for file in $(sort -r "chroot/var/lib/dpkg/info/${package}.list"); do
-        [ -d "chroot/${file}" ] && rmdir --ignore-fail-on-non-empty "chroot/${file}" 2>/dev/null
+        if [ -d "chroot/${file}" ]; then
+          rmdir --ignore-fail-on-non-empty "chroot/${file}" 2>/dev/null || true
+        fi
       done
 
       echo "  - Regenerate list file"
