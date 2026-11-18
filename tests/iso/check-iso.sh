@@ -122,6 +122,14 @@ grep -q 'mainuan-text' <<< "${text_default}" && pass "Plymouth text theme mainua
 anim="$(unsquashfs -lls "${squash}" usr/share/plymouth/themes/mainuan/throbber-0001.png 2>/dev/null | tail -1)"
 [[ "${anim}" == -* ]] && pass "Plymouth animation is a regular file (reaches the initramfs)" \
   || fail "Plymouth animation is a regular file (reaches the initramfs)"
+wm_mainuan="$(sq usr/share/plymouth/themes/mainuan/watermark.png | sha256sum | cut -d' ' -f1)"
+wm_spinner="$(sq usr/share/plymouth/themes/spinner/watermark.png | sha256sum | cut -d' ' -f1)"
+[[ -n "$(sq usr/share/plymouth/themes/mainuan/watermark.png | head -c 8)" && "${wm_mainuan}" != "${wm_spinner}" ]] \
+  && pass "Plymouth watermark is the Mainuan logo (not Spinner/Ubuntu)" \
+  || fail "Plymouth watermark is the Mainuan logo (not Spinner/Ubuntu)"
+face="$(unsquashfs -lls "${squash}" usr/share/sddm/themes/breeze/faces/.face.icon 2>/dev/null | grep -o '\-> .*')"
+grep -q 'plasma/avatars/kubuntu-bug.png' <<< "${face}" && pass "SDDM default face is the Mainuan logo" \
+  || fail "SDDM default face is the Mainuan logo (${face})"
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
