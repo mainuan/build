@@ -208,6 +208,13 @@ grep -q 'plasma-discover-notifier' <<< "$(sq etc/calamares/modules/packages.conf
   && pass "Calamares removes plasma-discover-notifier from the target" \
   || fail "Calamares removes plasma-discover-notifier from the target"
 # Removed from the image by remove-base-packages.lst; Discover itself stays.
+settings="$(sq etc/calamares/settings.conf)"
+grep -qx '  - shellprocess@sync' <<< "$settings" \
+  && grep -A1 -x '  - shellprocess@sync' <<< "$settings" | grep -qx '  - umount' \
+  && grep -q 'sync' <<< "$(sq etc/calamares/modules/shellprocess_sync.conf)" \
+  && pass "Calamares flushes the target before unmounting it" \
+  || fail "Calamares flushes the target before unmounting it"
+
 ! installed plasma-discover-notifier && installed plasma-discover \
   && pass "plasma-discover-notifier removed, Discover kept" || fail "plasma-discover-notifier removed, Discover kept"
 grep -q 'qsTr' <<< "$(sq etc/calamares/branding/vendor/show.qml)" \

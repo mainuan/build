@@ -638,6 +638,29 @@ CONF
 CONF
     fi
 
+    # The umount module gives each umount 10 s (fixed in Calamares 3.3).
+    # On a slow disk the root still has gigabytes of dirty pages there, the
+    # umount times out and the installer reports "Could not unmount the root
+    # of the target system", although the installation is complete. Flushing
+    # first, with its own generous timeout, makes the umount immediate.
+    echo "  - Flush the target before unmounting it"
+    cat > "chroot/etc/calamares/modules/shellprocess_sync.conf" <<'CONF'
+---
+dontChroot: true
+timeout: 900
+script:
+    - "sync -f ${ROOT}"
+    - "sync"
+CONF
+    if ! grep -q 'shellprocess@sync' "chroot/etc/calamares/settings.conf"; then
+      sed -i 's|^instances:$|instances:\n- id:       sync\n  module:   shellprocess\n  config:   shellprocess_sync.conf\n|' \
+        "chroot/etc/calamares/settings.conf"
+      sed -i 's|^  - umount$|  - shellprocess@sync\n  - umount|' "chroot/etc/calamares/settings.conf"
+    fi
+    grep -qx '  - shellprocess@sync' "chroot/etc/calamares/settings.conf" \
+      && grep -q 'config:   shellprocess_sync.conf' "chroot/etc/calamares/settings.conf" || {
+      echo "settings.conf: sync step not added"; return 1; }
+
     echo "  - Change name of branding directory"
     sed -i 's|^branding:.*|branding: vendor|' "chroot/etc/calamares/settings.conf"
     mkdir -p "chroot/etc/calamares/branding/vendor"
