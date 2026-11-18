@@ -148,6 +148,13 @@ class Serial:
     def send(self, text):
         self.sock.sendall(text.encode())
 
+    def type(self, text, delay=0.03):
+        """Send text one character at a time: with the graphical menu (theme)
+        GRUB redraws the editor on every key and drops a fast burst."""
+        for char in text:
+            self.sock.sendall(char.encode())
+            time.sleep(delay)
+
 
 def screen_rows(text):
     """Very small VT100 emulation: rows written by cursor addressing."""
@@ -260,7 +267,10 @@ def main():
             serial.send("\x0e")  # Ctrl-N: next line
             time.sleep(0.2)
         serial.send("\x05")  # Ctrl-E: end of line
-        serial.send(" console=tty0 console=ttyS0,115200")
+        time.sleep(0.3)
+        serial.type(" console=tty0 console=ttyS0,115200")
+        # Wait for GRUB to echo the end of the parameter before booting.
+        serial.wait_for(r"115200", 15)
         time.sleep(0.5)
         serial.send("\x18")  # Ctrl-X: boot
         serial.wait_for(r"Booting a command list", 30)
