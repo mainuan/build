@@ -9,17 +9,17 @@ https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v10.0.0/onlyoffic
 https://github.com/mainuan/wallpapers/releases/download/v2026.11.17/mainuan-wallpapers_2026.11.17_all.deb f0a878c3eee07d0b329ae60af575935108d68c9105d8c8be5df1dfa2e9a144fe
 https://github.com/mainuan/icons/releases/download/v2026.11.17.1/mainuan-icon-themes_2026.11.17.1_all.deb ed5a96a015d5547419a932183356a7dca799869c6e55d07f8b6fca3fab56de61
 https://github.com/mainuan/plasma-themes/releases/download/v2026.11.18/mainuan-plasma-themes_2026.11.18_all.deb 0ca6c625c5d59e27d983dc21cd36942c1927ed4b1e32fb795877170ee4e32913
-https://github.com/mainuan/dot-files/releases/download/v2026.11.18/mainuan-desktop-defaults_2026.11.18_all.deb e0e4c0ee2a13d33f6e97c2c9eef07bd481e3804c78a403635e72d876829c9cba
-https://github.com/mainuan/dot-files/releases/download/v2026.11.18/mainuan-user-avatar_2026.11.18_all.deb 8ec5d5b5e33f520c7d9212ded076122f38524f7512c6ce45bb6a5c80df9275c2
-https://github.com/mainuan/dot-files/releases/download/v2026.11.18/mainuan-grub-theme_2026.11.18_all.deb 2c2025ecaaa41cebd22c4363da8ac01e33903b1880e8b08fd6683cbeddda4ff9
-https://github.com/mainuan/dot-files/releases/download/v2026.11.18/mainuan-plasma-splash_2026.11.18_all.deb e78e140daf7c9150d404121a97f754b90df2478b6cb2f4400323fd73c4f6f6bc
+https://github.com/mainuan/dot-files/releases/download/v2026.11.18.1/mainuan-desktop-defaults_2026.11.18.1_all.deb 9cc4f6a3e7bdc85a370a4446a27acdf5c2fa7e807fac1642ba9f6df6f082bb6a
+https://github.com/mainuan/dot-files/releases/download/v2026.11.18.1/mainuan-user-avatar_2026.11.18.1_all.deb bfbae42b219d8725175acc4d4ab7a4cd6e3c936ebcad8751a702abb821af5358
+https://github.com/mainuan/dot-files/releases/download/v2026.11.18.1/mainuan-grub-theme_2026.11.18.1_all.deb 7d8947075692fd81f2c062e2f6925005012945313c2cad32505b0cd96b07c26f
+https://github.com/mainuan/dot-files/releases/download/v2026.11.18.1/mainuan-plasma-splash_2026.11.18.1_all.deb 258cb5f5a6aee5923dcdeef9e443489d556a7c8fbbf153b78ece457200a950b9
 #
 # Aplicativos Mainuan
-https://github.com/mainuan/welcome/releases/download/v1.0.1/mainuan-welcome_1.0.1_amd64.deb 2e2b2477e29d7b8eb4b420c8a6115cd0ebff23a01f66ecd6b4bb7411f06a2d80
+https://github.com/mainuan/welcome/releases/download/v1.1.0/mainuan-welcome_1.1.0_amd64.deb cb1476ef8174b219f4bc2802ab64522413378576883ece88707dd7a75cc187b5
 https://github.com/mainuan/alerta-atualizacao/releases/download/v2.0.5/system-upgrade_2.0.5_amd64.deb 034c23a2156b370ceb1339927a5d85cd4494d211a89aec0f156e4a0a41c623ce
 https://github.com/mainuan/painel-de-controle/releases/download/v1.1.2/painel-de-controle_1.1.2_amd64.deb e676c466ad012ce060b2b90c3479e18d614f7b397f339db5ad84a75734841585
-https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.0/mainuan-gestao-drivers_1.0_all.deb d7a1c98743a204f6b5770c7746cb02b3b4d66c09d2d368966118ac39fa47b912
-https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.2.3/mainuan-atualizador-recursos_0.2.3_all.deb 193730fd6521a283c728f33aafd3542bbd772551770a9604beb213974331805a
+https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.1/mainuan-gestao-drivers_1.1_all.deb c8f55e2ed9518cf6f10e18524525989d3eb910e8ceec0206b3982c9aae0ecf07
+https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.3.0/mainuan-atualizador-recursos_0.3.0_all.deb e859ca97762b9372b1dbbbcc525339cc6b736cc60fd7d05960cc9fe002a792c4
 # mainuan-grub-editor: fora desta RC. A release v2.1.0 (CI) foi substituída no
 # repositório pela v2.0.2, um .deb gerado fora do CI (Version 1.0.0-18, depende de
 # debhelper-compat); volta quando houver release do pipeline compartilhado.

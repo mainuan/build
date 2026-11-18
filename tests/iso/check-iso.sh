@@ -158,6 +158,63 @@ grep -q 'GRUB_THEME=/boot/grub/themes/mainuan/theme.txt' <<< "$(sq etc/default/g
 grep -qx 'LookAndFeelPackage=org.mainuan.desktop' <<< "$(sq etc/xdg/kdeglobals)" \
   && pass "Mainuan global theme is the system default" || fail "Mainuan global theme is the system default"
 
+# --- Clean image (data/base/exclude-paths.lst) -------------------------------
+listing_sq="$(unsquashfs -l "${squash}" 2>/dev/null | sed 's|^squashfs-root||')"
+excluded_left=""
+for path in $(sed 's|#.*||' "$(dirname "$0")/../../data/base/exclude-paths.lst" | xargs); do
+  grep -qx "${path}" <<< "${listing_sq}" && excluded_left+=" ${path}"
+done
+[ -z "${excluded_left}" ] && pass "Excluded wallpapers, styles, global themes and color schemes absent" \
+  || fail "Excluded paths still present:${excluded_left}"
+grep -q '^path-exclude=/usr/share/wallpapers/Altai$' <<< "$(sq etc/dpkg/dpkg.cfg.d/mainuan-exclude-paths)" \
+  && pass "dpkg path-exclude keeps them out on updates" || fail "dpkg path-exclude keeps them out on updates"
+[ -n "$(sq usr/share/plasma/desktoptheme/default/metadata.json)" ] \
+  && pass "Default Plasma style (fallback) kept" || fail "Default Plasma style (fallback) kept"
+grep -qx '/etc/apt/sources.list.bak' <<< "${listing_sq}" && fail "No /etc/apt/sources.list.bak" || pass "No /etc/apt/sources.list.bak"
+
+# --- Menu ---------------------------------------------------------------------
+grep -qx 'NoDisplay=true' <<< "$(sq usr/local/share/applications/org.kubuntu.driver-manager.desktop)" \
+  && pass "Kubuntu Driver Manager hidden from the menu" || fail "Kubuntu Driver Manager hidden from the menu"
+ark="$(sq usr/local/share/applications/org.kde.ark.desktop)"
+grep -qx 'Name\[en\]=Archive Manager' <<< "${ark}" && grep -qx 'Name\[es\]=Gestor de archivos comprimidos' <<< "${ark}" \
+  && pass "Reorganized menu names translated (reorganize-apps.yaml)" \
+  || fail "Reorganized menu names translated (reorganize-apps.yaml)"
+installer="$(sq usr/share/applications/kubuntu-calamares.desktop)"
+grep -qx 'Name=Install System' <<< "${installer}" && grep -qx 'Name\[pt_BR\]=Instalar o Sistema' <<< "${installer}" \
+  && pass "Installer launcher translated" || fail "Installer launcher translated"
+
+# --- Panel: Mainuan logo on the launcher, Laetum Control Center ------------------
+grep -qx '/usr/share/icons/hicolor/scalable/apps/mainuan.svg' <<< "${listing_sq}" \
+  && pass "Mainuan icon in the hicolor theme" || fail "Mainuan icon in the hicolor theme"
+applets="$(sq etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc)"
+grep -qx 'icon=mainuan' <<< "${applets}" && pass "Application launcher uses the Mainuan logo" \
+  || fail "Application launcher uses the Mainuan logo"
+grep -qx 'plugin=local.laetum.controlcenter' <<< "${applets}" && ! grep -q 'KdeControlStation' <<< "${applets}" \
+  && pass "Panel uses Laetum Control Center" || fail "Panel uses Laetum Control Center"
+
+# --- Translations of the Mainuan applications -------------------------------------
+missing_mo=""
+for domain in mainuan-welcome mainuan-atualizador-recursos mainuan-gestao-drivers system-upgrade painel-de-controle \
+              mainuan-flatpak-install-gui mainuan-install-appimage pkg-manager-gui deb-manager-gui instalador-de-fontes; do
+  grep -q "/usr/share/locale/pt_BR/LC_MESSAGES/${domain}.mo$\|/LC_MESSAGES/${domain}.mo$" <<< "${listing_sq}" || missing_mo+=" ${domain}"
+done
+[ -z "${missing_mo}" ] && pass "Mainuan applications ship their catalogs" || fail "Catalogs missing:${missing_mo}"
+
+# --- Calamares ----------------------------------------------------------------------
+grep -q '^    - name: "Mainuan"$' <<< "$(sq etc/calamares/modules/partition.conf)" && \
+  ! grep -q 'System_Root' <<< "$(sq etc/calamares/modules/partition.conf)" \
+  && pass "Calamares root partition named Mainuan" || fail "Calamares root partition named Mainuan"
+grep -q 'plasma-discover-notifier' <<< "$(sq etc/calamares/modules/packages.conf)" \
+  && pass "Calamares removes plasma-discover-notifier from the target" \
+  || fail "Calamares removes plasma-discover-notifier from the target"
+installed plasma-discover-notifier && pass "plasma-discover-notifier kept in the live session" \
+  || fail "plasma-discover-notifier kept in the live session"
+grep -q 'qsTr' <<< "$(sq etc/calamares/branding/vendor/show.qml)" \
+  && pass "Calamares slideshow with translatable text" || fail "Calamares slideshow with translatable text"
+qm_count="$(grep -c '^/etc/calamares/branding/vendor/lang/calamares-vendor_.*\.qm$' <<< "${listing_sq}")"
+[ "${qm_count}" -ge 33 ] && pass "Calamares slideshow translations (${qm_count})" \
+  || fail "Calamares slideshow translations (${qm_count})"
+
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
 
