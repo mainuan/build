@@ -148,12 +148,27 @@ class Serial:
     def send(self, text):
         self.sock.sendall(text.encode())
 
-    def type(self, text, delay=0.03):
-        """Send text one character at a time: with the graphical menu (theme)
-        GRUB redraws the editor on every key and drops a fast burst."""
+    def type(self, text):
+        """Send text one character at a time, waiting for GRUB to redraw the
+        line before the next one: with the graphical menu (theme) the editor
+        redraw is slow and GRUB drops or reorders characters sent in a burst
+        (seen in CI even with a 30 ms delay)."""
         for char in text:
+            before = len(self.raw)
             self.sock.sendall(char.encode())
-            time.sleep(delay)
+            deadline = time.monotonic() + 3
+            while len(self.raw) == before and time.monotonic() < deadline:
+                self.read()
+            # Let the rest of the redraw arrive.
+            quiet_until = time.monotonic() + 0.15
+            while time.monotonic() < quiet_until:
+                if self.read():
+                    quiet_until = time.monotonic() + 0.15
+
+    def editor_text(self, tail=4000):
+        """Text of the GRUB editor as drawn last: escapes and wraps removed."""
+        text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", self.raw[-tail:])
+        return re.sub(r"\\\r?\n\s*", "", text)
 
 
 def screen_rows(text):
@@ -256,22 +271,33 @@ def main():
         serial.wait_for(r"Mainuan", 120)
         report["steps"]["grub_menu_seconds"] = round(time.monotonic() - started, 1)
         time.sleep(1)
-        serial.buffer = ""
-        serial.send("e")
-        serial.wait_for(r"/casper/vmlinuz", 30)
-        time.sleep(1)
-        serial.read()
-        editor = serial.log_text_since_edit()
-        # The editor opens on "setparams '<title>'"; find the kernel line.
-        for _ in range(lines_to_kernel(editor)):
-            serial.send("\x0e")  # Ctrl-N: next line
-            time.sleep(0.2)
-        serial.send("\x05")  # Ctrl-E: end of line
-        time.sleep(0.3)
-        serial.type(" console=tty0 console=ttyS0,115200")
-        # Wait for GRUB to echo the end of the parameter before booting.
-        serial.wait_for(r"115200", 15)
-        time.sleep(0.5)
+        extra = " console=tty0 console=ttyS0,115200"
+        for attempt in range(1, 4):
+            serial.buffer = ""
+            serial.send("e")
+            serial.wait_for(r"/casper/vmlinuz", 30)
+            time.sleep(1)
+            serial.read()
+            editor = serial.log_text_since_edit()
+            # The editor opens on "setparams '<title>'"; find the kernel line.
+            for _ in range(lines_to_kernel(editor)):
+                serial.send("\x0e")  # Ctrl-N: next line
+                time.sleep(0.2)
+            serial.send("\x05")  # Ctrl-E: end of line
+            time.sleep(0.3)
+            serial.read()
+            serial.type(extra)
+            time.sleep(0.5)
+            serial.read()
+            if ("---" + extra) in serial.editor_text():
+                break
+            # A character was lost: discard the edit and try again.
+            report["steps"]["grub_edit_retries"] = attempt
+            serial.send("\x1b")  # Esc: back to the menu
+            time.sleep(2)
+            serial.read()
+        else:
+            raise RuntimeError("could not add the serial console to the GRUB entry")
         serial.send("\x18")  # Ctrl-X: boot
         serial.wait_for(r"Booting a command list", 30)
         report["steps"]["boot_seconds"] = round(time.monotonic() - started, 1)
