@@ -35,7 +35,7 @@ O mesmo commit do construtor gera sempre a mesma composição de componentes.
 
 ```
 Kubuntu 26.04.1 (GPG + SHA-256) ──┐
-.deb dos aplicativos (SHA-256) ───┼──▶ build.sh ──▶ mainuan-2027.1-rc3-amd64.iso
+.deb dos aplicativos (SHA-256) ───┼──▶ build.sh ──▶ mainuan-2027.1-rc4-amd64.iso
 temas/ícones/wallpapers (commit) ─┘                 ├─ .sha256, .packages, .build-info
                                                     └─ testes: estrutura, boot UEFI e BIOS
 ```
@@ -68,7 +68,7 @@ Resultado em `base/iso/`:
 
 | Arquivo | Conteúdo |
 |---|---|
-| `mainuan-2027.1-rc3-amd64.iso` | imagem final |
+| `mainuan-2027.1-rc4-amd64.iso` | imagem final |
 | `….iso.sha256` | SHA-256 da imagem |
 | `….packages` | todos os pacotes instalados (nome, versão, arquitetura) |
 | `….build-info` | base, commit do construtor, versões de kernel, Plasma, Qt e Calamares |
@@ -111,7 +111,7 @@ Tudo o que define o Mainuan fica em [`data/base/`](data/base):
 
 | Arquivo | Uso |
 |---|---|
-| `distro.ini` | nome, versão (`2027.1`, estágio `rc3`), usuário Live, locale, links e ISO base fixada (`base_iso_url`, `base_iso_sha256`, `base_iso_signing_key`) |
+| `distro.ini` | nome, versão (`2027.1`, estágio `rc4`), usuário Live, locale, links e ISO base fixada (`base_iso_url`, `base_iso_sha256`, `base_iso_signing_key`) |
 | `install-deb-packages.lst` | `<URL> <SHA-256>` por linha |
 | `git-dot-files.lst` | `<repo>.git <commit> > <destino>` ou `<URL> <SHA-256> > <destino>` |
 | `install-apt-packages.lst`, `remove-base-packages.lst` | pacotes adicionados e removidos |
@@ -142,6 +142,8 @@ A tag é a aprovação humana: ela só é criada depois dos testes de instalaç�
 
 - **Editor do GRUB** fora da ISO: a release atual do `mainuan-grub-editor` não foi gerada pelo CI.
 - `setup-anti-breakage` está desativado.
+- **Calamares em pt-BR:** o resumo mostra "Configure timezone para 1" e "modelo teclado foi configurado para 1", erro da tradução do próprio Calamares (falta o `%` de `%1`); os valores aplicados estão corretos.
+- **Nomes do menu:** os 16 nomes de `reorganize-apps.yaml` têm variantes só para en, es, fr, de e pt; nos outros idiomas aparece o nome base, em português.
 
 ## Créditos
 
