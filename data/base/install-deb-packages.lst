@@ -19,7 +19,7 @@ https://github.com/mainuan/welcome/releases/download/v1.1.0/mainuan-welcome_1.1.
 https://github.com/mainuan/alerta-atualizacao/releases/download/v2.0.5/system-upgrade_2.0.5_amd64.deb 034c23a2156b370ceb1339927a5d85cd4494d211a89aec0f156e4a0a41c623ce
 https://github.com/mainuan/painel-de-controle/releases/download/v1.1.2/painel-de-controle_1.1.2_amd64.deb e676c466ad012ce060b2b90c3479e18d614f7b397f339db5ad84a75734841585
 https://github.com/mainuan/mainuan-gestao-drivers/releases/download/v1.1/mainuan-gestao-drivers_1.1_all.deb c8f55e2ed9518cf6f10e18524525989d3eb910e8ceec0206b3982c9aae0ecf07
-https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.3.0/mainuan-atualizador-recursos_0.3.0_all.deb e859ca97762b9372b1dbbbcc525339cc6b736cc60fd7d05960cc9fe002a792c4
+https://github.com/mainuan/atualizador-de-recursos/releases/download/v0.3.1/mainuan-atualizador-recursos_0.3.1_all.deb 0869eb8514bf010ddd18a4a4b9a4c5281b4c1ff3261ea0cc79f341ea99dc71e2
 # mainuan-grub-editor: fora desta RC. A release v2.1.0 (CI) foi substituída no
 # repositório pela v2.0.2, um .deb gerado fora do CI (Version 1.0.0-18, depende de
 # debhelper-compat); volta quando houver release do pipeline compartilhado.
