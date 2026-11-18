@@ -152,11 +152,11 @@ grep -qx 'ExecStart=-/usr/bin/plymouth quit --retain-splash' \
   || fail "GRUB theme in /boot/grub/themes/mainuan"
 grep -q 'GRUB_THEME=/boot/grub/themes/mainuan/theme.txt' <<< "$(sq etc/default/grub.d/60-mainuan-theme.cfg)" \
   && pass "GRUB theme enabled in /etc/default/grub.d" || fail "GRUB theme enabled in /etc/default/grub.d"
-# Plasma splash, default for new accounts (and the live user).
-[ -n "$(sq usr/share/plasma/look-and-feel/org.mainuan.splash/contents/splash/Splash.qml)" ] \
-  && pass "Plasma splash org.mainuan.splash" || fail "Plasma splash org.mainuan.splash"
-grep -qx 'Theme=org.mainuan.splash' <<< "$(sq etc/skel/.config/ksplashrc)" \
-  && pass "New accounts use the Mainuan Plasma splash" || fail "New accounts use the Mainuan Plasma splash"
+# Mainuan global theme with the Plasma splash, the system default.
+[ -n "$(sq usr/share/plasma/look-and-feel/org.mainuan.desktop/contents/splash/Splash.qml)" ] \
+  && pass "Plasma splash (global theme org.mainuan.desktop)" || fail "Plasma splash (global theme org.mainuan.desktop)"
+grep -qx 'LookAndFeelPackage=org.mainuan.desktop' <<< "$(sq etc/xdg/kdeglobals)" \
+  && pass "Mainuan global theme is the system default" || fail "Mainuan global theme is the system default"
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
