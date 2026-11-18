@@ -248,7 +248,14 @@ function launchpad-repositories {
     for repo in $(sed "s|#.*||g" "${variant_data_dir}/launchpad-repositories.lst" | xargs); do
         echo "    - ${repo}"
         echo
-        chroot "chroot" add-apt-repository "${repo}" -y
+        # Launchpad drops connections now and then (SSLEOFError): retry.
+        local attempt
+        for attempt in 1 2 3; do
+            chroot "chroot" add-apt-repository "${repo}" -y && break
+            [ "${attempt}" -lt 3 ] || return 1
+            echo "    add-apt-repository failed (attempt ${attempt}); retrying in $((attempt * 20)) s"
+            sleep $((attempt * 20))
+        done
         echo
     done
     set +f
