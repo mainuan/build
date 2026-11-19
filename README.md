@@ -59,8 +59,11 @@ Requisitos: host Ubuntu/Kubuntu (26.04 recomendado), cerca de 50 GB livres, aces
 ```bash
 git clone https://github.com/mainuan/build.git
 cd build
-sudo ./build.sh base
+sudo --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH ./build.sh base
 ```
+
+> [!IMPORTANT]
+> O construtor precisa de pelo menos as variáveis de ambiente `PWD`, `XDG_RUNTIME_DIR`, `XDG_DATA_DIRS` e `PATH` como sendo iguais entre o ambiente root e o usuário que usou o comando `sudo`, do contrario poderá causar corrupção de memória no `bwrap` o utilitário que realiza a instalação de pacotes Flatpak.
 
 > No Ubuntu 26.04, o `sudo` é o `sudo-rs` e ignora `-E`. Use `sudo ./build.sh`, sem `-EH`.
 
@@ -80,12 +83,13 @@ Com `--iso=/caminho/kubuntu-26.04.1-desktop-amd64.iso`, o download é evitado. O
 
 O build executa as funções `function …` do `build.sh` na ordem em que aparecem. Cada etapa roda com `errexit`: o primeiro erro interrompe tudo e informa a etapa, a linha e o comando.
 
-```bash
-sudo ./build.sh base build-squashfs              # repete uma etapa (depois de um build completo)
-sudo ./build.sh base --enter-chroot              # shell dentro da imagem
-sudo ./build.sh base --chroot apt list --installed
-sudo ./build.sh --skip=install-flatpak-packages base
-```
+| Comando | Descrição |
+|---|---|
+| `sudo ./build.sh --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH base build-squashfs` | Repete uma etapa (após um build completo). |
+| `sudo ./build.sh --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH base --enter-chroot` | Abre um shell dentro da imagem. |
+| `sudo ./build.sh --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH base --chroot apt list --installed` | Executa um comando dentro do chroot. |
+| `sudo ./build.sh --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH --skip=install-flatpak-packages base` | Pula uma etapa do processo de build. |
+
 
 | Etapa | O que faz |
 |---|---|
