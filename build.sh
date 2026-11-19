@@ -1211,12 +1211,12 @@ function create-symlinks {
 function branding {
   show-header "Create branding files"
   # These files belong to base-files and kubuntu-settings-desktop. A local
-  # dpkg diversion keeps the package's copy as <file>.distrib, so a later
-  # update of those packages lands there instead of turning the system back
-  # into "Ubuntu"/"Kubuntu".
+  # dpkg diversion sends a later update of those packages to <file>.distrib
+  # instead of turning the system back into "Ubuntu"/"Kubuntu". --no-rename:
+  # base-files is Essential, and the Mainuan file is written right below.
   local f
   for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release /usr/lib/os-release; do
-    chroot "chroot" dpkg-divert --quiet --local --rename --divert "${f}.distrib" --add "${f}"
+    chroot "chroot" dpkg-divert --quiet --local --no-rename --divert "${f}.distrib" --add "${f}"
   done
   (
     echo "[General]"

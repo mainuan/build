@@ -35,7 +35,7 @@ O mesmo commit do construtor gera sempre a mesma composição de componentes.
 
 ```
 Kubuntu 26.04.1 (GPG + SHA-256) ──┐
-.deb dos aplicativos (SHA-256) ───┼──▶ build.sh ──▶ mainuan-2027.1-rc6-amd64.iso
+.deb dos aplicativos (SHA-256) ───┼──▶ build.sh ──▶ mainuan-2027.1-rc7-amd64.iso
 temas/ícones/wallpapers (commit) ─┘                 ├─ .sha256, .packages, .build-info
                                                     └─ testes: estrutura, boot UEFI e BIOS
 ```
@@ -68,7 +68,7 @@ Resultado em `base/iso/`:
 
 | Arquivo | Conteúdo |
 |---|---|
-| `mainuan-2027.1-rc6-amd64.iso` | imagem final |
+| `mainuan-2027.1-rc7-amd64.iso` | imagem final |
 | `….iso.sha256` | SHA-256 da imagem |
 | `….packages` | todos os pacotes instalados (nome, versão, arquitetura) |
 | `….build-info` | base, commit do construtor, versões de kernel, Plasma, Qt e Calamares |
@@ -112,7 +112,7 @@ Tudo o que define o Mainuan fica em [`data/base/`](data/base):
 
 | Arquivo | Uso |
 |---|---|
-| `distro.ini` | nome, versão (`2027.1`, estágio `rc6`), usuário Live, locale, links e ISO base fixada (`base_iso_url`, `base_iso_sha256`, `base_iso_signing_key`) |
+| `distro.ini` | nome, versão (`2027.1`, estágio `rc7`), usuário Live, locale, links e ISO base fixada (`base_iso_url`, `base_iso_sha256`, `base_iso_signing_key`) |
 | `install-deb-packages.lst` | `<URL> <SHA-256>` por linha |
 | `git-dot-files.lst` | `<repo>.git <commit> > <destino>` ou `<URL> <SHA-256> > <destino>` |
 | `install-apt-packages.lst`, `remove-base-packages.lst` | pacotes adicionados e removidos |
