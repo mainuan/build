@@ -94,16 +94,16 @@ for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release 
 done
 [ -z "${undiverted}" ] && pass "identity files diverted (base-files updates keep Mainuan)" \
   || fail "identity files not diverted:${undiverted}"
-# The "Next" wallpaper links (symlinks.lst) are diverted and their package
-# copies path-excluded, so a plasma-workspace-wallpapers update keeps them.
+# The "Next" wallpaper links (symlinks.lst) replace files of breeze-wallpaper,
+# whose content is removed and which is pinned at -1 (remove-packages-content.lst):
+# no update of that package can bring the KDE images back over the links.
 next=/usr/share/wallpapers/Next/contents/images/5120x2880.png
 next_link="$(unsquashfs -lls "${squash}" "${next#/}" 2>/dev/null | grep -o '\-> .*')"
-symlink_cfg="$(sq etc/dpkg/dpkg.cfg.d/mainuan-symlinks)"
+breeze_pin="$(sq etc/apt/preferences.d/breeze-wallpaper)"
 [[ "${next_link}" == "-> /usr/share/wallpapers/01ciano.png" ]] \
-  && grep -A1 -xF "${next}" <<< "${diversions}" | grep -qxF "${next}.distrib" \
-  && grep -qxF "path-exclude=${next}.distrib" <<< "${symlink_cfg}" \
-  && pass "Next wallpaper link diverted (package updates keep the Mainuan wallpaper)" \
-  || fail "Next wallpaper link diverted: ${next_link:-no link}"
+  && grep -qx 'Pin-Priority: -1' <<< "${breeze_pin}" \
+  && pass "Next wallpaper linked to Mainuan; breeze-wallpaper pinned at -1" \
+  || fail "Next wallpaper link or breeze-wallpaper pin: ${next_link:-no link}"
 
 status="$(sq var/lib/dpkg/status)"
 installed() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Status: install ok installed/{ok=1} END{exit !ok}' <<< "${status}"; }

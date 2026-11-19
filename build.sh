@@ -1179,11 +1179,6 @@ function create-symlinks {
         return 0
     fi
 
-    {
-      echo "# Mainuan: package files replaced by links (build/data/base/symlinks.lst)."
-      echo "# Their package copies are diverted to *.distrib and never written."
-    } > "chroot/etc/dpkg/dpkg.cfg.d/mainuan-symlinks"
-
     set -f
     IFS=$'\n'
     for repo in $(sed "s|#.*||g" "${variant_data_dir}/symlinks.lst" ); do
@@ -1203,17 +1198,6 @@ function create-symlinks {
         target=$(chroot "chroot" readlink -m "${target}");
         local target_dir=$(chroot "chroot" dirname "${target}");
 
-        # A target that belongs to a package (the "Next" wallpaper of
-        # plasma-workspace-wallpapers) gets a local dpkg diversion, so an
-        # update of that package writes <target>.distrib instead of replacing
-        # the link, and path-exclude keeps dpkg from writing that copy at all.
-        if chroot "chroot" dpkg-query -S "${target}" > /dev/null 2>&1; then
-            chroot "chroot" dpkg-divert --quiet --local --no-rename \
-                --divert "${target}.distrib" --add "${target}";
-            echo "path-exclude=${target}.distrib" >> "chroot/etc/dpkg/dpkg.cfg.d/mainuan-symlinks";
-            echo "    - Diverted (package file)";
-        fi
-
         chroot "chroot" rm -rf "${target}";
         chroot "chroot" mkdir -p "${target_dir}";
         chroot "chroot" ln -fs "${origin}" "${target}";
@@ -1227,12 +1211,12 @@ function create-symlinks {
 function branding {
   show-header "Create branding files"
   # These files belong to base-files and kubuntu-settings-desktop. A local
-  # dpkg diversion keeps the package's copy as <file>.distrib, so a later
-  # update of those packages lands there instead of turning the system back
-  # into "Ubuntu"/"Kubuntu".
+  # dpkg diversion sends a later update of those packages to <file>.distrib
+  # instead of turning the system back into "Ubuntu"/"Kubuntu". --no-rename:
+  # base-files is Essential, and the Mainuan file is written right below.
   local f
   for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release /usr/lib/os-release; do
-    chroot "chroot" dpkg-divert --quiet --local --rename --divert "${f}.distrib" --add "${f}"
+    chroot "chroot" dpkg-divert --quiet --local --no-rename --divert "${f}.distrib" --add "${f}"
   done
   (
     echo "[General]"
