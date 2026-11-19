@@ -75,7 +75,15 @@ case "${1:-}" in
   eject)
     guard_name "$2"
     target="$(virsh domblklist "$2" --details | awk '$2 == "cdrom" {print $3; exit}')"
-    virsh change-media "$2" "${target}" --eject --config ;;
+    # --config alone only applies at the next cold start: a reboot from the
+    # guest (Calamares' "Restart now") keeps the running QEMU and its CD.
+    scopes=(--config)
+    [ "$(LC_ALL=C virsh domstate "$2")" = running ] && scopes+=(--live)
+    for scope in "${scopes[@]}"; do
+      out="$(LC_ALL=C virsh change-media "$2" "${target}" --eject "${scope}" 2>&1)" \
+        || grep -q "doesn't have media" <<< "${out}" || { echo "${out}" >&2; exit 1; }
+    done
+    echo "CD ejected (${scopes[*]})" ;;
   screenshot) guard_name "$2"; virsh screenshot "$2" "$3" ;;
   *) sed -n '2,12p' "$0"; exit 1 ;;
 esac
