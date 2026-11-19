@@ -1179,6 +1179,11 @@ function create-symlinks {
         return 0
     fi
 
+    {
+      echo "# Mainuan: package files replaced by links (build/data/base/symlinks.lst)."
+      echo "# Their package copies are diverted to *.distrib and never written."
+    } > "chroot/etc/dpkg/dpkg.cfg.d/mainuan-symlinks"
+
     set -f
     IFS=$'\n'
     for repo in $(sed "s|#.*||g" "${variant_data_dir}/symlinks.lst" ); do
@@ -1197,6 +1202,17 @@ function create-symlinks {
         # -m: the target directory may not exist yet (created below).
         target=$(chroot "chroot" readlink -m "${target}");
         local target_dir=$(chroot "chroot" dirname "${target}");
+
+        # A target that belongs to a package (the "Next" wallpaper of
+        # plasma-workspace-wallpapers) gets a local dpkg diversion, so an
+        # update of that package writes <target>.distrib instead of replacing
+        # the link, and path-exclude keeps dpkg from writing that copy at all.
+        if chroot "chroot" dpkg-query -S "${target}" > /dev/null 2>&1; then
+            chroot "chroot" dpkg-divert --quiet --local --no-rename \
+                --divert "${target}.distrib" --add "${target}";
+            echo "path-exclude=${target}.distrib" >> "chroot/etc/dpkg/dpkg.cfg.d/mainuan-symlinks";
+            echo "    - Diverted (package file)";
+        fi
 
         chroot "chroot" rm -rf "${target}";
         chroot "chroot" mkdir -p "${target_dir}";

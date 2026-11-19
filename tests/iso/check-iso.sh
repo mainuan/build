@@ -94,6 +94,16 @@ for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release 
 done
 [ -z "${undiverted}" ] && pass "identity files diverted (base-files updates keep Mainuan)" \
   || fail "identity files not diverted:${undiverted}"
+# The "Next" wallpaper links (symlinks.lst) are diverted and their package
+# copies path-excluded, so a plasma-workspace-wallpapers update keeps them.
+next=/usr/share/wallpapers/Next/contents/images/5120x2880.png
+next_link="$(unsquashfs -lls "${squash}" "${next#/}" 2>/dev/null | grep -o '\-> .*')"
+symlink_cfg="$(sq etc/dpkg/dpkg.cfg.d/mainuan-symlinks)"
+[[ "${next_link}" == "-> /usr/share/wallpapers/01ciano.png" ]] \
+  && grep -A1 -xF "${next}" <<< "${diversions}" | grep -qxF "${next}.distrib" \
+  && grep -qxF "path-exclude=${next}.distrib" <<< "${symlink_cfg}" \
+  && pass "Next wallpaper link diverted (package updates keep the Mainuan wallpaper)" \
+  || fail "Next wallpaper link diverted: ${next_link:-no link}"
 
 status="$(sq var/lib/dpkg/status)"
 installed() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Status: install ok installed/{ok=1} END{exit !ok}' <<< "${status}"; }
