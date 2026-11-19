@@ -725,6 +725,46 @@ style:
     done
 }
 
+function remove-orphan-packages {
+    show-header "Remove packages left behind by the base upgrade"
+
+    # data/base/remove-orphan-packages.lst: libraries only an older version of
+    # a base package needed (fwupd 2.1.1 of the 26.04.1 image depended on
+    # libflashrom1 and libjcat1; the 2.1.6 update uses neither). Runs after
+    # every installation step, so nothing brings them back into the image.
+    # They are removed only when nothing else goes with them: if a package
+    # still depends on one, the build stops instead of taking that package
+    # (fwupd, Discover...) out of the image.
+    local list="${variant_data_dir}/remove-orphan-packages.lst"
+    local wanted=() package
+    if [ -f "${list}" ]; then
+      for package in $(sed 's|#.*||' "${list}" | xargs); do
+        if [ "$(chroot chroot dpkg-query -W -f='${Status}' "${package}" 2>/dev/null)" = "install ok installed" ]; then
+          wanted+=("${package}")
+        else
+          echo "  - ${package} is not installed, skipping"
+        fi
+      done
+    fi
+    if [ "${#wanted[@]}" -eq 0 ]; then
+      echo "No orphan packages to remove"
+      return 0
+    fi
+
+    local removed extra
+    removed="$(chroot chroot apt-get -s purge "${wanted[@]}" | awk '/^Purg /{print $2}' | sort)"
+    extra="$(comm -23 <(echo "${removed}") <(printf '%s\n' "${wanted[@]}" | sort))"
+    if [ -n "${extra}" ]; then
+      echo "Removing ${wanted[*]} would also remove:"
+      echo "${extra}" | sed 's|^|    |'
+      echo "Something still depends on them: drop them from ${list##*/}."
+      return 1
+    fi
+    echo "  - Purging ${wanted[*]}"
+    chroot-apt-get purge -y "${wanted[@]}"
+    chroot chroot apt-get check
+}
+
 function remove-packages-contents {
     show-header "Remove package contents" 
 

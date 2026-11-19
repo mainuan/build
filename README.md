@@ -99,6 +99,7 @@ sudo ./build.sh --skip=install-flatpak-packages base
 | `install-deb-packages` | `.deb` com SHA-256 em `install-deb-packages.lst` |
 | `install-apt-packages` / `install-flatpak-packages` | pacotes extras |
 | `setup-calamares` | identidade, páginas e partições do instalador |
+| `remove-orphan-packages` | `data/base/remove-orphan-packages.lst`: bibliotecas que só a versão antiga de um pacote da base usava; para o build se algo mais sairia junto |
 | `remove-packages-contents`, `reorganize-menu`, `remove-system-files`, `create-symlinks` | ajustes de menu e de arquivos |
 | `branding` | `os-release`, `lsb-release`, `issue`, "Sobre este sistema" |
 | `cleanup-system-image` | confere a ausência de variantes `amd64v3`, limpa APT e logs |
@@ -115,6 +116,7 @@ Tudo o que define o Mainuan fica em [`data/base/`](data/base):
 | `install-deb-packages.lst` | `<URL> <SHA-256>` por linha |
 | `git-dot-files.lst` | `<repo>.git <commit> > <destino>` ou `<URL> <SHA-256> > <destino>` |
 | `install-apt-packages.lst`, `remove-base-packages.lst` | pacotes adicionados e removidos |
+| `remove-orphan-packages.lst` | órfãos deixados pela atualização da base (`libflashrom1`, `libftdi1-2`, `libjcat1` do fwupd 2.1.1), removidos depois das instalações |
 | `grub-entries.yaml` | entradas do menu de boot |
 | `hide-apps-from-menu.lst`, `reorganize-apps.yaml`, `plasma-kcms.yaml` | menu de aplicativos |
 
@@ -124,7 +126,7 @@ Para trocar a versão de um aplicativo na ISO, publique a release no repositóri
 
 | Teste | Comando | O que verifica |
 |---|---|---|
-| Estrutura | `tests/iso/check-iso.sh <iso>` | registros de boot BIOS e UEFI, MBR híbrido, kernel e initrd, `md5sum.txt`, `os-release`, pacotes essenciais e Mainuan, Calamares, ausência de restos de build e de variantes `amd64v3` |
+| Estrutura | `tests/iso/check-iso.sh <iso>` | registros de boot BIOS e UEFI, MBR híbrido, kernel e initrd, `md5sum.txt`, `os-release`, pacotes essenciais e Mainuan, Calamares, ausência de restos de build e de variantes `amd64v3`, `apt-get check` das dependências, órfãos removidos e fwupd mantido |
 | Boot Live | `tests/iso/live-smoke.py <iso> --firmware uefi\|bios [--cpu-model Nehalem]` | inicia pelo GRUB da ISO em QEMU/KVM, entra pela serial como o usuário Live e coleta estado do systemd, unidades com falha, sessão Plasma/Wayland, rede, DNS, erros do journal e uma captura de tela; desliga |
 | VM local | `tests/vm/mainuan-vm.sh create <iso>` | cria a VM `mainuan-test` no libvirt (UEFI, 4 vCPU, 6 GiB, 60 GB) para instalar pelo Calamares no Virt-Manager |
 

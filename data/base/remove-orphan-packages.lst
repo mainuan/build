@@ -1,0 +1,18 @@
+#################################################
+##
+##     Órfãos deixados pela atualização da base
+##
+##  Removidos depois de todas as instalações (etapa
+##  remove-orphan-packages). Só saem se nada mais sair junto:
+##  se algum pacote ainda depender deles, o build para.
+##
+#################################################
+#
+# O fwupd 2.1.1 da imagem do Kubuntu 26.04.1 dependia de libflashrom1 e
+# libjcat1. O fwupd 2.1.6 (resolute-updates), instalado pelo
+# upgrade-base-packages, não usa mais nenhum dos dois: "Drop flashrom support"
+# no changelog do Debian, e a verificação das assinaturas .jcat do LVFS está
+# dentro do próprio fwupd. libftdi1-2 só era dependência de libflashrom1.
+libflashrom1
+libftdi1-2
+libjcat1

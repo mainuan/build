@@ -3,7 +3,7 @@
 #
 #   tests/iso/check-iso.sh <image.iso> [workdir]
 #
-# Needs: xorriso, squashfs-tools (unsquashfs), coreutils, file.
+# Needs: xorriso, squashfs-tools (unsquashfs), coreutils, file, apt (apt-get check).
 # Exit status 0 only when every check passes.
 set -uo pipefail
 
@@ -228,6 +228,43 @@ grep -qx '  - shellprocess@sync' <<< "$settings" \
 
 ! installed plasma-discover-notifier && installed plasma-discover \
   && pass "plasma-discover-notifier removed, Discover kept" || fail "plasma-discover-notifier removed, Discover kept"
+# --- Packages: dependencies and firmware updates ------------------------------
+# Every package fully installed, and APT finds every dependency satisfied
+# (apt-get check on the image's dpkg status, offline, without the host's
+# packages or sources).
+unfinished="$(awk '/^Package: /{p=$2} /^Status: /{if ($4 != "installed" && $4 != "config-files" && $4 != "not-installed") print p" ("$4")"}' <<< "${status}" | xargs)"
+[ -z "${unfinished}" ] && pass "No half-installed or unconfigured package" || fail "Packages not fully installed: ${unfinished}"
+aptroot="${work}/apt"
+rm -rf "${aptroot}"
+mkdir -p "${aptroot}/lists/partial" "${aptroot}/cache/archives/partial" "${aptroot}/etc/apt.conf.d" \
+         "${aptroot}/etc/preferences.d" "${aptroot}/etc/sources.list.d"
+printf '%s\n' "${status}" > "${aptroot}/status"
+apt-get -o Dir::State::status="${aptroot}/status" -o Dir::State::Lists="${aptroot}/lists" \
+        -o Dir::Cache="${aptroot}/cache" -o Dir::Etc="${aptroot}/etc" -o Dir::Etc::SourceList=/dev/null \
+        -o Dir::Etc::SourceParts="${aptroot}/etc/sources.list.d" -o APT::Architecture=amd64 \
+        -o APT::Architectures=amd64 -o Debug::NoLocking=1 check > "${work}/apt-check.log" 2>&1 \
+  && pass "apt-get check: dependencies of the installed packages satisfied" \
+  || { fail "apt-get check: dependencies of the installed packages satisfied"; tail -20 "${work}/apt-check.log"; }
+# libflashrom1, libftdi1-2 and libjcat1 were left behind by fwupd 2.1.1 of the
+# base image; fwupd 2.1.6 uses none of them (data/base/remove-orphan-packages.lst).
+# Firmware updates stay: fwupd, its refresh timer and the Discover backend.
+orphans_left=""
+for package in libflashrom1 libftdi1-2 libjcat1; do
+  installed "${package}" && orphans_left+=" ${package}"
+done
+[ -z "${orphans_left}" ] && pass "libflashrom1, libftdi1-2 and libjcat1 removed" \
+  || fail "Orphan libraries still installed:${orphans_left}"
+fwupd_missing=""
+for package in fwupd libfwupd3 fwupd-signed plasma-discover plasma-discover-backend-fwupd; do
+  installed "${package}" || fwupd_missing+=" ${package}"
+done
+[ -z "${fwupd_missing}" ] && pass "fwupd, fwupd-signed and the Discover fwupd backend kept" \
+  || fail "Firmware update packages missing:${fwupd_missing}"
+grep -qx '/etc/systemd/system/timers.target.wants/fwupd-refresh.timer' <<< "${listing_sq}" \
+  && grep -qx '/usr/lib/systemd/system/fwupd.service' <<< "${listing_sq}" \
+  && pass "fwupd.service present, fwupd-refresh.timer enabled" \
+  || fail "fwupd.service present, fwupd-refresh.timer enabled"
+
 grep -q 'qsTr' <<< "$(sq etc/calamares/branding/vendor/show.qml)" \
   && pass "Calamares slideshow with translatable text" || fail "Calamares slideshow with translatable text"
 qm_count="$(grep -c '^/etc/calamares/branding/vendor/lang/calamares-vendor_.*\.qm$' <<< "${listing_sq}")"
