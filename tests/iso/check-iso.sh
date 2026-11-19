@@ -330,8 +330,8 @@ skel_face="$(unsquashfs -lls "${squash}" etc/skel/.face 2>/dev/null | grep 'etc/
   && pass "/etc/skel/.face is a regular root file (Welcome accepts it)" \
   || fail "/etc/skel/.face is a regular root file: ${skel_face:-missing}"
 # Welcome: the Mainuan logo on every layout launcher and official links (1.1.1+).
-installed mainuan-welcome && at_least mainuan-welcome 1.1.1 \
-  && pass "Mainuan Welcome >= 1.1.1" || fail "Mainuan Welcome >= 1.1.1"
+installed mainuan-welcome && at_least mainuan-welcome 1.1.2 \
+  && pass "Mainuan Welcome >= 1.1.2" || fail "Mainuan Welcome >= 1.1.2"
 grep -qx '/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/mainuan-launcher-icon-2.js' <<< "${listing_sq}" \
   && pass "launcher logo update script for existing accounts" || fail "launcher logo update script for existing accounts"
 
