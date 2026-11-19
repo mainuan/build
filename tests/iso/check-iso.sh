@@ -84,6 +84,16 @@ os_release="$(sq usr/lib/os-release)"
 grep -qx 'NAME="Mainuan"' <<< "${os_release}" && pass "os-release NAME=Mainuan" || fail "os-release NAME=Mainuan"
 grep -qx 'ID=mainuan' <<< "${os_release}" && pass "os-release ID=mainuan" || fail "os-release ID=mainuan"
 grep -qx 'UBUNTU_CODENAME=resolute' <<< "${os_release}" && pass "os-release based on resolute" || fail "os-release based on resolute"
+# The identity files are diverted, so an update of base-files or
+# kubuntu-settings-desktop does not bring "Ubuntu"/"Kubuntu" back.
+diversions="$(sq var/lib/dpkg/diversions)"
+undiverted=""
+for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release /usr/lib/os-release; do
+  grep -qxF -A2 "${f}" <<< "${diversions}" && grep -A2 -xF "${f}" <<< "${diversions}" | grep -qxF "${f}.distrib" \
+    || undiverted+=" ${f}"
+done
+[ -z "${undiverted}" ] && pass "identity files diverted (base-files updates keep Mainuan)" \
+  || fail "identity files not diverted:${undiverted}"
 
 status="$(sq var/lib/dpkg/status)"
 installed() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Status: install ok installed/{ok=1} END{exit !ok}' <<< "${status}"; }
