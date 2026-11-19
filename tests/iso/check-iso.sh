@@ -3,7 +3,7 @@
 #
 #   tests/iso/check-iso.sh <image.iso> [workdir]
 #
-# Needs: xorriso, squashfs-tools (unsquashfs), coreutils, file, apt (apt-get check).
+# Needs: xorriso, squashfs-tools (unsquashfs), coreutils, file, apt (apt-get check), dpkg (version comparison).
 # Exit status 0 only when every check passes.
 set -uo pipefail
 
@@ -289,6 +289,41 @@ sq usr/share/calamares/lang/calamares_pt_BR.qm \
 
 branding="$(sq etc/calamares/branding/vendor/branding.desc)"
 grep -q 'productName: *Mainuan' <<< "${branding}" && pass "Calamares branding" || fail "Calamares branding"
+
+# ---- UX mission (docs/ux) regression gates ----
+# Control Center: the grey header band is off by default.
+laetum_xml="$(sq usr/share/plasma/plasmoids/local.laetum.controlcenter/contents/config/main.xml)"
+python3 -c "import re,sys; t=sys.stdin.read(); sys.exit(not re.search(r'name=\"showHeader\" type=\"Bool\">\s*<default>false</default>', t))" <<< "${laetum_xml}" \
+  && pass "Laetum Control Center opens without the header (showHeader=false)" \
+  || fail "Laetum Control Center opens without the header (showHeader=false)"
+# Tray icons: the panel gear follows the colour scheme (no fixed grey).
+gear="$(sq usr/share/icons/kora-cyan/apps/symbolic/preferences-system-symbolic.svg)"
+grep -Eq 'fill(:|=")currentColor' <<< "${gear}" && grep -q 'ColorScheme-Text' <<< "${gear}" \
+  && ! grep -Eq 'fill:rgb\(2[0-9][0-9],' <<< "${gear}" \
+  && pass "kora-cyan symbolic gear is recolourable" || fail "kora-cyan symbolic gear is recolourable"
+# News: an empty or disabled announcement never opens a window; 0.4.0 or later.
+version_of() { awk -v p="$1" '$0=="Package: "p{f=1;next} /^Package: /{f=0} f&&/^Version: /{print $2; exit}' <<< "${status}"; }
+at_least() { local v; v="$(version_of "$1")"; [ -n "${v}" ] && dpkg --compare-versions "${v}" ge "$2"; }
+installed mainuan-atualizador-recursos && at_least mainuan-atualizador-recursos 0.4.0 \
+  && pass "Feature updater with explicit announcements (>= 0.4.0)" \
+  || fail "Feature updater with explicit announcements (>= 0.4.0)"
+# Identity: official files, restore service enabled, /etc/skel/.face regular.
+for path in /usr/share/mainuan/identity/manifest.json /usr/share/mainuan/identity/checksums.sha256 \
+            /usr/share/mainuan/identity/avatars/cyan.svg /usr/share/mainuan/identity/logo/mainuan-logo.svg \
+            /usr/libexec/mainuan-identity/mainuan-identity-restore; do
+  grep -qxF "${path}" <<< "${listing_sq}" || fail "missing ${path}"
+done
+grep -qx '/etc/systemd/system/multi-user.target.wants/mainuan-identity-restore.service' <<< "${listing_sq}" \
+  && pass "mainuan-identity-restore.service enabled" || fail "mainuan-identity-restore.service enabled"
+skel_face="$(unsquashfs -lls "${squash}" etc/skel/.face 2>/dev/null | grep 'etc/skel/.face$')"
+[[ "${skel_face}" == -rw-r--r--\ root/root* ]] \
+  && pass "/etc/skel/.face is a regular root file (Welcome accepts it)" \
+  || fail "/etc/skel/.face is a regular root file: ${skel_face:-missing}"
+# Welcome: the Mainuan logo on every layout launcher and official links (1.1.1+).
+installed mainuan-welcome && at_least mainuan-welcome 1.1.1 \
+  && pass "Mainuan Welcome >= 1.1.1" || fail "Mainuan Welcome >= 1.1.1"
+grep -qx '/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/mainuan-launcher-icon-2.js' <<< "${listing_sq}" \
+  && pass "launcher logo update script for existing accounts" || fail "launcher logo update script for existing accounts"
 
 echo
 if [ "${failures}" -eq 0 ]; then
