@@ -4,7 +4,10 @@
 #   tests/vm/mainuan-vm.sh create <image.iso> [name] [--bios] [--small]
 #   tests/vm/mainuan-vm.sh snapshot <name> <snapshot> [description]
 #   tests/vm/mainuan-vm.sh snapshots <name>
-#   tests/vm/mainuan-vm.sh eject <name>          # boot from the disk next time
+#   tests/vm/mainuan-vm.sh eject <name>          # boot from the disk next time; on a running
+#                                                # Live system only at the casper prompt
+#                                                # "remove the installation medium" (earlier,
+#                                                # the Live system loses its squashfs)
 #   tests/vm/mainuan-vm.sh screenshot <name> <file.png>
 #
 # Safety: only domains and volumes whose name starts with "mainuan-test" are
