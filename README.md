@@ -65,8 +65,6 @@ sudo --preserve-env=PWD,XDG_RUNTIME_DIR,XDG_DATA_DIRS,PATH ./build.sh base
 > [!IMPORTANT]
 > O construtor precisa de pelo menos as variáveis de ambiente `PWD`, `XDG_RUNTIME_DIR`, `XDG_DATA_DIRS` e `PATH` como sendo iguais entre o ambiente root e o usuário que usou o comando `sudo`, do contrario poderá causar corrupção de memória no `bwrap` o utilitário que realiza a instalação de pacotes Flatpak.
 
-> No Ubuntu 26.04, o `sudo` é o `sudo-rs` e ignora `-E`. Use `sudo ./build.sh`, sem `-EH`.
-
 Resultado em `base/iso/`:
 
 | Arquivo | Conteúdo |
