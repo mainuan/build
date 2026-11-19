@@ -1210,6 +1210,14 @@ function create-symlinks {
 
 function branding {
   show-header "Create branding files"
+  # These files belong to base-files and kubuntu-settings-desktop. A local
+  # dpkg diversion keeps the package's copy as <file>.distrib, so a later
+  # update of those packages lands there instead of turning the system back
+  # into "Ubuntu"/"Kubuntu".
+  local f
+  for f in /etc/xdg/kcm-about-distrorc /etc/issue /etc/issue.net /etc/lsb-release /usr/lib/os-release; do
+    chroot "chroot" dpkg-divert --quiet --local --rename --divert "${f}.distrib" --add "${f}"
+  done
   (
     echo "[General]"
     echo "LogoPath=${logo}"
