@@ -7,6 +7,7 @@
   vmctl.py <domain> type <text>                type text (US keymap keys)
   vmctl.py <domain> typebr <text>              type text for the guest's ABNT2 layout
   vmctl.py <domain> key <combo> [combo...]     e.g. ret, tab, ctrl-alt-t, meta_l
+  vmctl.py <domain> scroll <x> <y> <n> [W H]   mouse wheel at x,y: n notches down (negative: up)
 
 Clicks need the absolute pointer of a usb-tablet (virt-install adds one).
 W H is the current guest resolution (default 1280 800).
@@ -90,6 +91,17 @@ def click(domain, x, y, width, height, count=1):
         time.sleep(0.1)
 
 
+def scroll(domain, x, y, notches, width, height):
+    ax, ay = int(x * ABS_MAX / width), int(y * ABS_MAX / height)
+    qmp(domain, "input-send-event", {"events": [{"type": "abs", "data": {"axis": "x", "value": ax}},
+                                                {"type": "abs", "data": {"axis": "y", "value": ay}}]})
+    button = "wheel-down" if notches > 0 else "wheel-up"
+    for _ in range(abs(notches)):
+        for down in (True, False):
+            qmp(domain, "input-send-event", {"events": [{"type": "btn", "data": {"down": down, "button": button}}]})
+        time.sleep(0.05)
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit(__doc__)
@@ -102,6 +114,9 @@ def main():
     elif action in ("click", "dclick"):
         width, height = (int(args[2]), int(args[3])) if len(args) >= 4 else (1280, 800)
         click(domain, int(args[0]), int(args[1]), width, height, 2 if action == "dclick" else 1)
+    elif action == "scroll":
+        width, height = (int(args[3]), int(args[4])) if len(args) >= 5 else (1280, 800)
+        scroll(domain, int(args[0]), int(args[1]), int(args[2]), width, height)
     elif action == "type":
         type_text(domain, " ".join(args))
     elif action == "typebr":
