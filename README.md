@@ -74,6 +74,7 @@ Resultado em `base/iso/`:
 | `….packages` | todos os pacotes instalados (nome, versão, arquitetura) |
 | `….build-info` | base, commit do construtor, versões de kernel, Plasma, Qt e Calamares |
 | `components.sha256` | hash de cada componente externo usado |
+| `components.sha256.insecure` | hash de cada componente externo usado no qual não foi possivel obter uma hash oficial |
 
 Com `--iso=/caminho/kubuntu-26.04.1-desktop-amd64.iso`, o download é evitado. O arquivo ainda precisa ter o SHA-256 fixado.
 
@@ -107,6 +108,8 @@ O build executa as funções `function …` do `build.sh` na ordem em que aparec
 | `cleanup-system-image` | confere a ausência de variantes `amd64v3`, limpa APT e logs |
 | `write-manifests` | lista de pacotes e informações de build |
 | `build-squashfs`, `build-grub`, `build-iso` | squashfs xz, GRUB BIOS/UEFI, ISO e SHA-256 |
+
+**Nota:** Para testes rápidos é possivel pular a verificação de hashes com `sudo ALLOW_INSECURE_PACKAGES=allow_insecure ./build.sh`
 
 ### Configuração da variante
 
