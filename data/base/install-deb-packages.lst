@@ -5,15 +5,17 @@
 # Escritório
 https://github.com/ONLYOFFICE/DesktopEditors/releases/download/v10.0.0/onlyoffice-desktopeditors_amd64.deb 2190edb4022a2ac2f6eee0f78815520f0e4ece1e8a1097c645a6f9b225c8b59c
 #
-# Identidade visual e configuração padrão (pacotes de dados)
+# Identidade visual
 https://github.com/mainuan/wallpapers/releases/download/v2026.11.17/mainuan-wallpapers_2026.11.17_all.deb f0a878c3eee07d0b329ae60af575935108d68c9105d8c8be5df1dfa2e9a144fe
 https://github.com/mainuan/icons/releases/download/v2026.11.19/mainuan-icon-themes_2026.11.19_all.deb 92953233ad5e677b1d48edc3c4e69357014687678c2adcf6cea3f374624a5839
 https://github.com/mainuan/plasma-themes/releases/download/v2026.11.19/mainuan-plasma-themes_2026.11.19_all.deb a391cc1a7442ed9c664eb10c6f2e6cc1120882b1a911a550599a947e00bcf6f5
-https://github.com/mainuan/dot-files/releases/download/v2026.11.19/mainuan-desktop-defaults_2026.11.19_all.deb 5e07dbfd4f08ce2c1f2d583d2a8c7f78a49b0f8f0e0a698dd8d1c1b8e373f8ac
-https://github.com/mainuan/dot-files/releases/download/v2026.11.19/mainuan-identity_2026.11.19_all.deb 0b0b84a06b2ae6811690dd4e332345124b5cd588fb603be82dfbe97ec283a139
-https://github.com/mainuan/dot-files/releases/download/v2026.11.19/mainuan-user-avatar_2026.11.19_all.deb 1de5c99b0517dcf63d6fd2aba9f7d95f5c31d23e72dda15f72db2901d0cf3eac
-https://github.com/mainuan/dot-files/releases/download/v2026.11.19/mainuan-grub-theme_2026.11.19_all.deb f742f69f4c312470530612ebac1df51bb93fccc4635c138a8c44f64aebadd55a
-https://github.com/mainuan/dot-files/releases/download/v2026.11.19/mainuan-plasma-splash_2026.11.19_all.deb 610e1d1cf228eaa0738283e9438bd25c03d1ffe4cc942b17ba3dbd48b1924ed3
+#
+# Configuração padrão (pacotes de dados)
+https://github.com/mainuan/dot-files/releases/download/v2026.11.22/mainuan-desktop-defaults_2026.11.22_all.deb 672329cbe05dd17a73103dcac89c6e9ee8338f113a5772ab020a6c55b0d72b38  
+https://github.com/mainuan/dot-files/releases/download/v2026.11.22/mainuan-grub-theme_2026.11.22_all.deb 93c03bb197158bd72f549500a04baf6913dbe86b098fb0e80f7018bfa70c2e01  
+https://github.com/mainuan/dot-files/releases/download/v2026.11.22/mainuan-identity_2026.11.22_all.deb 31937fb4a3c5e9c36a08fcc92f2d331bd1009dbaf7adf3fe4f30b07486b3825f  
+https://github.com/mainuan/dot-files/releases/download/v2026.11.22/mainuan-plasma-splash_2026.11.22_all.deb 0311f1f4adeb5580757757aa8d1d34c292ecedb10aca30edc4c828498ed56ad1  
+https://github.com/mainuan/dot-files/releases/download/v2026.11.22/mainuan-user-avatar_2026.11.22_all.deb 0f96d1708390a0a592bdd6aa3d3ab5e1bfa1b206a2d0f88d3d2c477564e4a689  
 #
 # Aplicativos Mainuan
 https://github.com/mainuan/mainuan-store/releases/download/v0.6.3/mainuan-store_0.6.3.deb adc4d6eec7df97e35e3bfa9bb3af92936f5260d72df39699f6ca139ecf85cf27
