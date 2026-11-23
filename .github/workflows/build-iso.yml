@@ -12,6 +12,8 @@ on:
     branches: [main]
     tags: ['v[0-9]*']
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       variant:
