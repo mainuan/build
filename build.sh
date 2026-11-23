@@ -434,15 +434,23 @@ function install-deb-packages {
     local package_url package_sha256 extra file
     while read -r package_url package_sha256 extra; do
       [ -n "${package_url}" ] || continue
-      if [[ ! "${package_sha256}" =~ ^[0-9a-f]{64}$ ]] || [ -n "${extra}" ]; then
-        echo "Each line of ${list##*/} needs: <url> <sha256> (${package_url})"
-        return 1
+      if [ ! "${ALLOW_INSECURE_PACKAGES}" = "allow_insecure" ]; then
+        if [[ ! "${package_sha256}" =~ ^[0-9a-f]{64}$ ]] || [ -n "${extra}" ]; then
+          echo "Each line of ${list##*/} needs: <url> <sha256> (${package_url})"
+          return 1
+        fi
       fi
       file="chroot/mita-i.debian-packages/${package_url##*/}"
       echo "    - ${package_url##*/}"
       wget --quiet -O "${file}" "${package_url}"
-      echo "${package_sha256}  ${file}" | sha256sum --check --quiet
-      echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+      if [ ! "${ALLOW_INSECURE_PACKAGES}" = "allow_insecure" ]; then
+        echo "${package_sha256}  ${file}" | sha256sum --check --quiet
+        echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+      else
+        package_sha256=$(sha256sum "${file}" | awk '{print $1}')
+        echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+        echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.insecure.sha256"
+      fi     
     done < <(sed 's|#.*||' "${list}")
     echo
 
