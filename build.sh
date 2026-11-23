@@ -447,9 +447,13 @@ function install-deb-packages {
         echo "${package_sha256}  ${file}" | sha256sum --check --quiet
         echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
       else
-        package_sha256=$(sha256sum "${file}" | awk '{print $1}')
-        echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
-        echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.insecure.sha256"
+        if ! echo "${package_sha256}  ${file}" | sha256sum --check --quiet; then
+          package_sha256=$(sha256sum "${file}" | awk '{print $1}')
+          echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.insecure.sha256"
+          echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+        else
+          echo "${package_sha256}  ${package_url##*/}" >> "${PWD}/iso/components.sha256"
+        fi
       fi     
     done < <(sed 's|#.*||' "${list}")
     echo
