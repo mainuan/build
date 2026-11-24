@@ -104,7 +104,7 @@ org.kde.plasma-welcome.desktop[es]: Documentation; | Tutorial
 org.kde.plasma-welcome.desktop[fr]: Documentation; | Tutoriel
 org.kde.plasma-welcome.desktop[de]: Documentation; | Einführung
 org.kde.konsole.desktop: System; | %GenericName
-org.kde.discover.desktop: System; | %GenericName
+# org.kde.discover.desktop: System; | %GenericName
 org.kde.krdc.desktop: System; | %GenericName
 org.kde.partitionmanager.desktop: System; | %GenericName
 org.kde.ksystemlog.desktop: System; | %GenericName
