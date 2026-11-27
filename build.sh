@@ -543,8 +543,9 @@ function install-snap-packages {
     echo
     if [ ! -f "chroot/usr/bin/snap" ]; then
         echo
-        echo "Snap support, not found skipping..."
+        echo "Snap support not found; skipping Snap installation."
         echo
+        return 0
     fi
     echo "  - Installing packages"
     echo
