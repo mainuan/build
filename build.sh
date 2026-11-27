@@ -1649,20 +1649,29 @@ EXIT() {
 trap EXIT EXIT
 #-----------------------------------------------------------------------------------------------------------------------------------------
 --bind-umount() {
-    mounts=(
+    local mounts=(
         "chroot/dev/pts"
         "chroot/dev"
         "chroot/proc"
         "chroot/run"
         "chroot/debian-packages"
     )
+    local mount_point attempt
 
     for mount_point in "${mounts[@]}"; do
-        while mountpoint -q "${mount_point}"; do
-            echo "  - Unmounting ${mount_point}"
-            umount -l "${mount_point}" 2>/dev/null
+        for ((attempt = 1; attempt <= 10; attempt++)); do
+            mountpoint -q "${mount_point}" || break
+            echo "  - Unmounting ${mount_point} (attempt ${attempt}/10)"
+            if ! umount -l "${mount_point}" 2>/dev/null; then
+                echo "  - Unmount attempt ${attempt} failed for ${mount_point}" >&2
+            fi
             sleep 0.5
         done
+
+        if mountpoint -q "${mount_point}"; then
+            echo "Error: mount point remains active after 10 attempts: ${mount_point}" >&2
+            return 1
+        fi
     done
 }
 #-----------------------------------------------------------------------------------------------------------------------------------------
