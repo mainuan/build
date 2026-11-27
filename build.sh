@@ -1765,13 +1765,16 @@ if [ "${EUID}" -ne 0 ] || { [ -n "${SUDO_USER}" ] && [ "${USER}" = "${SUDO_USER}
     exit 1
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
+caller_dir=$PWD
 cd "$(dirname "$(readlink -f "${0}")")"
 #-----------------------------------------------------------------------------------------------------------------------------------------
 unset new_args url
+local_iso_requested=false
 new_args=()
 for arg in "$@"; do
   if [[ "${arg}" == --iso=* ]]; then
-    url=$(echo "${arg}" | cut -c 7-)
+    url="${arg#--iso=}"
+    local_iso_requested=true
     continue
   fi
 
@@ -1828,10 +1831,25 @@ for required in base_iso_url base_iso_sha256 base_iso_signing_key; do
     exit 1
   fi
 done
-if [ -n "${url}" ] && [ ! -f "${url}" ]; then
-  echo "Error: --iso must point to a local copy of ${base_iso_url##*/}"
-  exit 1
+if [ "${local_iso_requested}" = true ]; then
+  if [ -z "${url}" ]; then
+    echo "Error: --iso requires a local ISO file path" >&2
+    exit 1
+  fi
+  case "${url}" in
+    /*) ;;
+    *) url="${caller_dir}/${url}" ;;
+  esac
+  url="$(readlink -f -- "${url}")" || {
+    echo "Error: cannot resolve --iso path" >&2
+    exit 1
+  }
+  if [ ! -f "${url}" ] || [ ! -r "${url}" ]; then
+    echo "Error: --iso must point to a readable local copy of ${base_iso_url##*/}" >&2
+    exit 1
+  fi
 fi
+unset caller_dir local_iso_requested
 #-----------------------------------------------------------------------------------------------------------------------------------------
 mkdir -p ${variant}
 cd ${variant}
