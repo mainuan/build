@@ -70,4 +70,4 @@ unattended-upgrades
 snapd
 ufw
 ffmpeg
-plasma-discover
+plasma-discover-notifier
