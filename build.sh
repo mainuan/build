@@ -99,19 +99,43 @@ function download-image {
 function extract-image {
     show-header "Extract image"
 
-    (
-      cd base
-      if [ ! -f "filesystem.squashfs" ]; then
-        osirrox -indev "${flavour}.iso" -extract /casper .
-        rm -f filesystem.manifest
-        rm -f filesystem.size
-        rm -f filesystem.manifest-minimal-remove
-        rm -f filesystem.manifest-remove
-        rm -f filesystem.squashfs.gpg
-      fi
-    )
+    # A failed previous build may have left /dev, /proc or /run mounted in
+    # chroot. Unmount before replacing the working tree.
+    --bind-umount
 
-    unsquashfs -d chroot -f base/filesystem.squashfs
+    # Rebuild from a clean tree. unsquashfs -f overwrites files but does not
+    # remove files that disappeared from a newer base filesystem.
+    rm -rf chroot image
+    mkdir -p chroot image/{boot/grub,casper,isolinux,preseed}
+
+    local source_iso="base/${flavour}.iso"
+    local squashfs="base/filesystem.squashfs"
+    local source_stamp="base/.filesystem-squashfs-source.sha256"
+    local source_hash
+    source_hash="$(sha256sum "${source_iso}" | awk '{print $1}')"
+
+    # Reuse the extracted SquashFS only when it belongs to this exact ISO and
+    # passes the SquashFS superblock check. Old unstamped caches are rebuilt.
+    if [ ! -s "${squashfs}" ] \
+        || [ ! -s "${source_stamp}" ] \
+        || [ "$(cat "${source_stamp}" 2>/dev/null)" != "${source_hash}" ] \
+        || ! unsquashfs -s "${squashfs}" >/dev/null 2>&1; then
+        rm -f "${squashfs}" "${source_stamp}" \
+            base/filesystem.manifest base/filesystem.size \
+            base/filesystem.manifest-minimal-remove \
+            base/filesystem.manifest-remove base/filesystem.squashfs.gpg
+        (
+          cd base
+          osirrox -indev "${flavour}.iso" -extract /casper .
+        )
+        if [ ! -s "${squashfs}" ] || ! unsquashfs -s "${squashfs}" >/dev/null 2>&1; then
+          echo "Error: could not extract a valid filesystem.squashfs from ${source_iso}" >&2
+          return 1
+        fi
+        printf '%s\n' "${source_hash}" > "${source_stamp}"
+    fi
+
+    unsquashfs -d chroot -f "${squashfs}"
 
     (
       cd "chroot"
@@ -125,7 +149,6 @@ function extract-image {
       fi
     )
 }
-
 function mount-virtual-fs {
     show-header "Initialize virtual FS"
 
