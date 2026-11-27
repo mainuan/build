@@ -1720,9 +1720,9 @@ $(grep '^function' "${script}" | grep -Ev -- 'EXIT|function-template|show-header
   local option=""
   local status=0
 
-  if declare -F "${requested}" > /dev/null; then
+  if [ "${requested}" = "--enter-chroot" ] || [ "${requested}" = "--chroot" ]; then
     option="${requested}"
-  elif [ "${requested}" = "--enter-chroot" ] || [ "${requested}" = "--chroot" ]; then
+  elif declare -F "${requested}" > /dev/null; then
     option="${requested}"
   fi
 
