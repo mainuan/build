@@ -22,6 +22,7 @@ function check-build-dependencies {
   declare -A commandMap=(
     [mmd]="mtools"
     [mcopy]="mtools"
+    [mkfs.vfat]="dosfstools"
     [grub-mkstandalone]="grub-common"
     [osirrox]="xorriso"
     [unsquashfs]="squashfs-tools"
