@@ -44,7 +44,7 @@ function check-build-dependencies {
     command -v "${cmd}" >/dev/null 2>&1 || missing+=(${commandMap[${cmd}]})
   done
 
-  for pkg in grub-pc grub-efi-amd64-bin; do
+  for pkg in grub-pc-bin grub-efi-amd64-bin; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       missing+=(${pkg})
     fi
