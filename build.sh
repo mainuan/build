@@ -1708,42 +1708,47 @@ $(grep '^function' "${script}" | grep -Ev -- 'EXIT|function-template|show-header
 
 --chroot() {
   show-header "Entering chroot now..."
-  shift;
-  shift;
+  if [ "$#" -eq 0 ]; then
+    echo "Usage: ${0} <variant> --chroot <command> [arg1] ..." >&2
+    return 2
+  fi
   chroot "chroot" "$@"
 }
 #-----------------------------------------------------------------------------------------------------------------------------------------
 --run-step() {
-  option=$(grep '^function' "${script}" | cut -d' ' -f2 | grep -- ^"${1}"$)
+  local requested="${1:-}"
+  local option=""
+  local status=0
 
-  if [ "${1}" = "--enter-chroot" ] || [ "${1}" = "--chroot" ]; then
-    option="${1}";
+  if declare -F "${requested}" > /dev/null; then
+    option="${requested}"
+  elif [ "${requested}" = "--enter-chroot" ] || [ "${requested}" = "--chroot" ]; then
+    option="${requested}"
   fi
 
-  if [ ! "${option}" == "" ]; then
+  if [ -n "${option}" ]; then
     step_count=3
 
     show-header "Initialize virtual FS"
     --bind-mount
 
-
     (
       set -Eeo pipefail
       trap 'echo "ERROR in step ${option}, line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
-      "${option}" "$@"
+      "${option}" "${@:2}"
     )
-    local status=$?
+    status=$?
 
-    show-header "Finish virtual FS" 
+    show-header "Finish virtual FS"
     --bind-umount
 
     echo
     exit "${status}"
   fi
-  echo "Unknown option '${1}' availables:"
-  echo
-  grep '^function' "${script}" | cut -d' ' -f2  | grep "" | sort | sed 's|^|  * |'
-  echo
+  echo "Unknown option '${requested}' availables:" >&2
+  echo >&2
+  grep '^function' "${script}" | cut -d' ' -f2 | sort | sed 's|^|  * |' >&2
+  echo >&2
   exit 1
 }
 #-----------------------------------------------------------------------------------------------------------------------------------------
@@ -1831,8 +1836,9 @@ mkdir -p ${variant}
 cd ${variant}
 mkdir -p iso chroot image/{boot/grub,casper,isolinux,preseed} ;
 #-----------------------------------------------------------------------------------------------------------------------------------------
-if [ ! "${2}" = "" ]; then
-  --run-step "${2}";
+if [ "$#" -gt 1 ]; then
+  # Preserve arguments for individual build steps and --chroot commands.
+  --run-step "${@:2}"
 fi
 #-----------------------------------------------------------------------------------------------------------------------------------------
 if [ -f "${variant_data_dir}/BuildSteps" ]; then
