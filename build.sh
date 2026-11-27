@@ -70,6 +70,13 @@ function download-image {
     if [ -f "${url}" ]; then
       cp "${url}" "${iso}"
     elif [ ! -f "${iso}" ] || ! echo "${base_iso_sha256}  ${iso}" | sha256sum --check --status; then
+      # Never resume a cached ISO that failed the pinned checksum: it may be
+      # a partial download or a different release. A clean transfer prevents
+      # wget -c from appending bytes from two different ISO versions.
+      if [ -e "${iso}" ]; then
+        echo "  - Removing cached ISO that does not match the pinned SHA-256"
+        rm -f "${iso}"
+      fi
       local release_dir="${base_iso_url%/*}"
 
       echo "  - Verifying the signature of ${release_dir}/SHA256SUMS"
@@ -89,7 +96,7 @@ function download-image {
       grep -qx "${base_iso_sha256} \*${base_iso_url##*/}" base/SHA256SUMS
 
       echo "  - Downloading ${base_iso_url}"
-      wget --quiet --show-progress --progress=dot:giga -c "${base_iso_url}" -O "${iso}"
+      wget --quiet --show-progress --progress=dot:giga "${base_iso_url}" -O "${iso}"
     fi
 
     echo "  - Checking SHA-256 of ${iso}"
