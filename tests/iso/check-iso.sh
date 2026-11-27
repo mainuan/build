@@ -64,11 +64,26 @@ grep -q 'serial --unit=0' "${cfg}" && pass "GRUB serial mirror" || fail "GRUB se
 # Live menu with the Mainuan GRUB theme (fonts loaded before "set theme").
 grep -q 'set theme=/boot/grub/themes/mainuan/theme.txt' "${cfg}" && pass "Live GRUB uses the Mainuan theme" \
   || fail "Live GRUB uses the Mainuan theme"
+theme_dir="${extract}/boot/grub/themes/mainuan"
+theme_file="${theme_dir}/theme.txt"
 theme_ok=1
-for font in $(grep -o '"Noto Sans[^"]*"' "${extract}/boot/grub/themes/mainuan/theme.txt" 2>/dev/null | sort -u | tr -d '"' | tr 'A-Z ' 'a-z_'); do
-  [ -s "${extract}/boot/grub/themes/mainuan/${font}.pf2" ] && grep -q "loadfont /boot/grub/themes/mainuan/${font}.pf2" "${cfg}" || theme_ok=0
+# Derive the PFF2 filenames from the actual font names in theme.txt. This
+# supports both the published Noto-based package and the new Barlow/Ubuntu
+# theme, and avoids a vacuous pass when no Noto fonts are referenced.
+mapfile -t font_names < <(
+  sed -nE 's/^[[:space:]]*(terminal-font|item_font|selected_item_font|font)[[:space:]]*[:=][[:space:]]*"([^"]+)".*/\2/p' "${theme_file}" \
+    | sort -u
+)
+[ -s "${theme_file}" ] && [ "${#font_names[@]}" -gt 0 ] || theme_ok=0
+for font_name in "${font_names[@]}"; do
+  font_file="$(printf '%s' "${font_name}" | tr '[:upper:] ' '[:lower:]_').pf2"
+  if [ ! -s "${theme_dir}/${font_file}" ] \
+      || ! grep -Fqx "loadfont /boot/grub/themes/mainuan/${font_file}" "${cfg}"; then
+    echo "  missing or not loaded: ${font_name} (${font_file})"
+    theme_ok=0
+  fi
 done
-[ -s "${extract}/boot/grub/themes/mainuan/theme.txt" ] && [ "${theme_ok}" = 1 ] \
+[ "${theme_ok}" = 1 ] \
   && pass "Live GRUB theme fonts present and loaded" || fail "Live GRUB theme fonts present and loaded"
 grep -q -- '--class mainuan' "${cfg}" && pass "Live GRUB entries carry the mainuan class (icon)" \
   || fail "Live GRUB entries carry the mainuan class (icon)"
