@@ -20,7 +20,7 @@ function check-build-dependencies {
   show-header "Check for build dependencies..."
 
   declare -A commandMap=(
-    [mmd]="dosfstools"
+    [mmd]="mtools"
     [mcopy]="mtools"
     [grub-mkstandalone]="grub-common"
     [osirrox]="xorriso"
